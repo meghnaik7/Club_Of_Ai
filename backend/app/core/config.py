@@ -39,12 +39,16 @@ class Settings(BaseSettings):
     RAG_TOP_K: int = 5
     SIMILARITY_THRESHOLD: float = 0.55
 
-    @property
-    def DATABASE_URL(self) -> str:
-        env_url = os.getenv("DATABASE_URL")
-        if env_url:
-            return env_url
-        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+    DATABASE_URL: str = ""
+
+    def model_post_init(self, __context: object) -> None:
+        if not self.DATABASE_URL:
+            env_url = os.getenv("DATABASE_URL")
+            if env_url:
+                self.DATABASE_URL = env_url
+            else:
+                sqlite_path = BASE_DIR / "clubops.db"
+                self.DATABASE_URL = f"sqlite:///{sqlite_path.as_posix()}"
     
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),

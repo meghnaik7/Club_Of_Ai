@@ -16,6 +16,7 @@ class Volunteer(Base):
     user_id = Column(Integer, ForeignKey("users.id"), unique=True)
     skills = Column(String, nullable=True) # Stored as comma-separated list
     availability = Column(String, nullable=True) # Stored as comma-separated list
+    max_capacity = Column(Integer, default=10, nullable=False) # e.g. hours per week
     status = Column(Enum(VolunteerStatus), default=VolunteerStatus.ACTIVE, nullable=False)
     
     # Relationships
