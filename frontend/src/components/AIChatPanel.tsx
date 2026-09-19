@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Bot, User, Loader2, CheckCircle, XCircle, Sparkles, ChevronRight, Trash2 } from 'lucide-react';
+import { X, Send, Bot, User, Loader2, CheckCircle, XCircle, Sparkles, ChevronRight, Trash2, Mic } from 'lucide-react';
 import AIService from '../services/ai.service';
 import type { ChatMessage, AICommandRequest } from '../services/ai.service';
+import VoiceAssistant from './voice/VoiceAssistant';
+import type { VoiceChatResponse } from '../services/voice.service';
 
 
 
@@ -109,8 +111,33 @@ export default function AIChatPanel({ isOpen, onClose, activeEventId }: AIChatPa
   const [historyCount, setHistoryCount] = useState(0);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isVoiceOpen, setIsVoiceOpen] = useState(false);
+  const [activeThreadId, setActiveThreadId] = useState<string | undefined>(undefined);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleVoiceTurnComplete = (turn: VoiceChatResponse) => {
+    if (turn.thread_id) {
+      setActiveThreadId(turn.thread_id);
+    }
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: turn.transcript,
+      timestamp: new Date(),
+    };
+    const assistantMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: turn.response_text,
+      timestamp: new Date(),
+      proposals: turn.proposals,
+      status: turn.status,
+      details: turn.details,
+    };
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+  };
+
 
   useEffect(() => {
     if (isOpen) {
@@ -325,6 +352,14 @@ export default function AIChatPanel({ isOpen, onClose, activeEventId }: AIChatPa
               style={{ minHeight: '36px' }}
             />
             <button
+              type="button"
+              onClick={() => setIsVoiceOpen(true)}
+              title="Voice Assistant (Sarvam Multilingual)"
+              className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-violet-600/30 text-violet-400 hover:text-white border border-slate-700 hover:border-violet-500/40 flex items-center justify-center transition-all shrink-0 shadow-sm"
+            >
+              <Mic className="w-4 h-4" />
+            </button>
+            <button
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || isLoading}
               className="w-9 h-9 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0"
@@ -336,9 +371,19 @@ export default function AIChatPanel({ isOpen, onClose, activeEventId }: AIChatPa
               )}
             </button>
           </div>
-          <p className="text-[10px] text-slate-700 text-center mt-2">Shift+Enter for newline</p>
+          <p className="text-[10px] text-slate-700 text-center mt-2">Shift+Enter for newline • Click 🎙 for Voice Mode</p>
         </div>
       </div>
+
+      {/* Embedded Multilingual Voice Assistant Modal */}
+      <VoiceAssistant
+        isOpen={isVoiceOpen}
+        onClose={() => setIsVoiceOpen(false)}
+        activeEventId={activeEventId}
+        initialThreadId={activeThreadId}
+        onTurnComplete={handleVoiceTurnComplete}
+      />
     </>
   );
 }
+

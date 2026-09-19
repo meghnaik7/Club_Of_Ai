@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, LayoutDashboard, Calendar, Users, Megaphone, CheckSquare, Sparkles, Menu, X, BookOpen, Briefcase, ShieldCheck } from 'lucide-react';
+import { LogOut, LayoutDashboard, Calendar, Users, Megaphone, CheckSquare, Sparkles, Menu, X, BookOpen, Briefcase, ShieldCheck, Mic } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AIChatPanel from './AIChatPanel';
+import VoiceAssistant from './voice/VoiceAssistant';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -14,7 +15,9 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
   const { user, logout, isClubLeader, userTeams } = useAuth();
   const location = useLocation();
   const [aiOpen, setAiOpen] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
 
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -81,6 +84,18 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
               <Sparkles className="w-4 h-4 text-violet-400 group-hover:scale-110 transition-transform" />
               <span className="font-semibold text-sm">AI Assistant</span>
               <span className="ml-auto text-[10px] bg-violet-500/20 text-violet-300 border border-violet-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Active</span>
+            </button>
+
+            {/* Voice AI Button */}
+            <button
+              onClick={() => setVoiceOpen(true)}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 bg-gradient-to-r from-rose-600/10 to-amber-600/10 hover:from-rose-600/20 hover:to-amber-600/20 text-rose-300 hover:text-white border border-rose-500/20 hover:border-rose-500/40 group mt-1"
+            >
+              <Mic className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
+              <span className="font-semibold text-sm">Voice AI</span>
+              <span className="ml-auto text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                Multilingual
+              </span>
             </button>
           </div>
         </nav>
@@ -205,7 +220,17 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
             <h1 className="text-base sm:text-lg font-bold text-white tracking-tight">{title}</h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Voice AI Quick Launcher */}
+            <button
+              onClick={() => setVoiceOpen(true)}
+              title="Speak in English, Hindi, or Gujarati"
+              className="flex items-center gap-2 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-rose-500/40 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+            >
+              <Mic className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+              <span className="hidden sm:inline">Voice Mode</span>
+            </button>
+
             {/* AI Assistant Quick Launcher */}
             <button
               onClick={() => setAiOpen(true)}
@@ -227,6 +252,13 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
       <AIChatPanel
         isOpen={aiOpen}
         onClose={() => setAiOpen(false)}
+        activeEventId={activeEventId}
+      />
+
+      {/* Standalone Voice Assistant Modal */}
+      <VoiceAssistant
+        isOpen={voiceOpen}
+        onClose={() => setVoiceOpen(false)}
         activeEventId={activeEventId}
       />
     </div>

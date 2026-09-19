@@ -96,6 +96,17 @@ class Settings(BaseSettings):
     CHECKPOINTER_POOL_MAX_SIZE: int = 20
     CHECKPOINTER_POOL_TIMEOUT: float = 10.0
 
+    # Sarvam AI Voice Settings
+    SARVAM_API_KEY: str = os.getenv("SARVAM_API_KEY", "")
+    SARVAM_STT_MODEL: str = os.getenv("SARVAM_STT_MODEL", "saaras:v3")
+    SARVAM_TTS_MODEL: str = os.getenv("SARVAM_TTS_MODEL", "bulbul:v3")
+    SARVAM_DEFAULT_LANGUAGE: str = os.getenv("SARVAM_DEFAULT_LANGUAGE", "en-IN")
+    SARVAM_ENGLISH_VOICE: str = os.getenv("SARVAM_ENGLISH_VOICE", "shubh")
+    SARVAM_HINDI_VOICE: str = os.getenv("SARVAM_HINDI_VOICE", "shubh")
+    SARVAM_GUJARATI_VOICE: str = os.getenv("SARVAM_GUJARATI_VOICE", "shubh")
+    VOICE_MAX_AUDIO_SIZE_MB: int = int(os.getenv("VOICE_MAX_AUDIO_SIZE_MB", "25"))
+    VOICE_TIMEOUT_SECONDS: float = float(os.getenv("VOICE_TIMEOUT_SECONDS", "30.0"))
+
     def model_post_init(self, __context: object) -> None:
         env_url = os.getenv("DATABASE_URL") or self.DATABASE_URL
         if env_url and "${" not in env_url:
