@@ -1,29 +1,42 @@
-import { useEffect, useState } from 'react'
-import axios from 'axios'
-import './App.css'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import EventList from './pages/EventList';
+import EventForm from './pages/EventForm';
+import EventDetails from './pages/EventDetails';
+import VolunteerList from './pages/VolunteerList';
+import VolunteerForm from './pages/VolunteerForm';
+import VolunteerProfile from './pages/VolunteerProfile';
+import './App.css';
 
 function App() {
-  const [message, setMessage] = useState('')
-
-  useEffect(() => {
-    axios.get('http://localhost:8000/')
-      .then(response => {
-        setMessage(response.data.message)
-      })
-      .catch(error => {
-        console.error('Error fetching data:', error)
-        setMessage('Error connecting to backend')
-      })
-  }, [])
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md">
-        <h1 className="text-3xl font-bold mb-4 text-blue-600">ClubOps AI Frontend</h1>
-        <p className="text-gray-700">Backend says: <span className="font-semibold text-green-600">{message || 'Loading...'}</span></p>
-      </div>
-    </div>
-  )
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/events" element={<EventList />} />
+            <Route path="/events/new" element={<EventForm />} />
+            <Route path="/events/:id" element={<EventDetails />} />
+            <Route path="/events/:id/edit" element={<EventForm />} />
+            
+            <Route path="/volunteers" element={<VolunteerList />} />
+            <Route path="/volunteers/new" element={<VolunteerForm />} />
+            <Route path="/volunteers/:id" element={<VolunteerProfile />} />
+            <Route path="/volunteers/:id/edit" element={<VolunteerForm />} />
+          </Route>
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;

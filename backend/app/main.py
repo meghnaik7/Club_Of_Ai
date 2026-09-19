@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import init_db
-from app.api.v1.router import api_router
+from app.api.api import api_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,8 +27,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount API v1 router
-app.include_router(api_router, prefix=settings.API_V1_STR)
+# Mount API routers under both /api and /api/v1 for compatibility
+app.include_router(api_router, prefix="/api")
+app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():

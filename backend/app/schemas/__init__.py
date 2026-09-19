@@ -1,4 +1,8 @@
-from app.schemas.document import (
+from .user import User, UserCreate, UserUpdate
+from .token import Token, TokenPayload
+from .event import Event, EventCreate, EventUpdate
+from .volunteer import Volunteer, VolunteerCreate, VolunteerUpdate, VolunteerResponse
+from .document import (
     DocumentRead,
     DocumentListResponse,
     DocumentChunkRead,
@@ -11,6 +15,18 @@ from app.schemas.document import (
 )
 
 __all__ = [
+    "User",
+    "UserCreate",
+    "UserUpdate",
+    "Token",
+    "TokenPayload",
+    "Event",
+    "EventCreate",
+    "EventUpdate",
+    "Volunteer",
+    "VolunteerCreate",
+    "VolunteerUpdate",
+    "VolunteerResponse",
     "DocumentRead",
     "DocumentListResponse",
     "DocumentChunkRead",
@@ -19,5 +35,5 @@ __all__ = [
     "RAGQueryResponse",
     "ClubMemoryPlanCheckRequest",
     "ClubMemoryPlanCheckResponse",
-    "ClubMemoryLessonRecommendation"
+    "ClubMemoryLessonRecommendation",
 ]

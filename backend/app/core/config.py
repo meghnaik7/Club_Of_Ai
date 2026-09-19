@@ -9,11 +9,22 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     API_V1_STR: str = "/api/v1"
     
-    # Database Configuration: Defaults to SQLite for immediate local zero-setup,
-    # or override with DATABASE_URL=postgresql://user:pass@localhost:5432/clubops_ai
-    DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'clubops.db'}")
+    # Postgres Database Configuration
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "your_password"
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: str = "5432"
+    POSTGRES_DB: str = "clubops_ai"
     
-    # Upload Storage
+    # Secret Key & Tokens
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-super-secret-key-change-in-production")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    
+    # Volunteer Load Thresholds
+    VOLUNTEER_LOAD_LOW: int = 3
+    VOLUNTEER_LOAD_MEDIUM: int = 6
+    
+    # Upload Storage for Documents
     UPLOAD_DIR: str = str(BASE_DIR / "uploads")
     
     # LLM & Embedding Settings
@@ -22,11 +33,18 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "gemini-embedding")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini-1.5-flash")
     
-    # RAG Tuning Parameters
+    # RAG Parameters
     CHUNK_SIZE: int = 500
     CHUNK_OVERLAP: int = 100
     RAG_TOP_K: int = 5
     SIMILARITY_THRESHOLD: float = 0.55
+
+    @property
+    def DATABASE_URL(self) -> str:
+        env_url = os.getenv("DATABASE_URL")
+        if env_url:
+            return env_url
+        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
     
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),
