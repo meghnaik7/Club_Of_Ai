@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, LayoutDashboard, Calendar, Users, Megaphone, CheckSquare, Sparkles, Menu, X, Briefcase, ShieldCheck, Network } from 'lucide-react';
+import {
+  LogOut, LayoutDashboard, Calendar, Users, Megaphone,
+  CheckSquare, Sparkles, Menu, X, BookOpen, Briefcase, ShieldCheck, Network
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AIChatPanel from './AIChatPanel';
 
@@ -24,7 +27,8 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
     ...((isAdmin || isClubHead || isSubTeamLead) ? [{ to: '/volunteers', icon: Users, label: isSubTeamLead && !isClubHead ? 'Team Volunteers' : 'Volunteers' }] : []),
     { to: '/tasks', icon: CheckSquare, label: isVolunteer ? 'My Tasks' : 'Tasks' },
     { to: '/announcements', icon: Megaphone, label: 'Announcements' },
-    ...((isAdmin || isClubHead) ? [{ to: '/permissions', icon: ShieldCheck, label: 'Permissions' }] : []),
+    { to: '/documents', icon: BookOpen, label: 'RAG Knowledge' },
+    ...((isAdmin || isClubHead || isClubLeader) ? [{ to: '/permissions', icon: ShieldCheck, label: 'Permissions' }] : []),
   ];
 
   const getRoleLabel = () => {
@@ -39,58 +43,65 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex text-slate-200">
+    <div className="min-h-screen bg-slate-950 flex text-slate-200 antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
       {/* Desktop Sidebar */}
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 hidden md:flex flex-col shrink-0">
-        <div className="p-6">
-          <Link to="/dashboard" className="text-xl font-bold text-white flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-indigo-600/30">
-              <span className="text-white text-sm font-bold tracking-tight">CO</span>
+      <aside className="w-64 bg-slate-900/90 backdrop-blur-md border-r border-slate-800 hidden md:flex flex-col shrink-0 z-20">
+        <div className="p-6 border-b border-slate-800/60">
+          <Link to="/dashboard" className="text-xl font-bold text-white flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <span className="text-white text-sm font-black tracking-wider">CO</span>
             </div>
-            <span>ClubOps <span className="text-indigo-400">AI</span></span>
+            <div>
+              <span className="bg-gradient-to-r from-white via-slate-100 to-indigo-200 bg-clip-text text-transparent font-black tracking-tight">ClubOps</span>
+              <span className="text-indigo-400 font-bold ml-1 text-xs px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20">AI</span>
+            </div>
           </Link>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1.5 mt-1">
+        <nav className="flex-1 px-4 space-y-1.5 mt-4">
+          <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Management</p>
           {navItems.map((item) => {
-            const isActive = location.pathname.startsWith(item.to) && item.to !== '#';
+            const isActive = location.pathname === item.to || (item.to !== '/dashboard' && location.pathname.startsWith(item.to));
             return (
               <Link
                 key={item.label}
                 to={item.to}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors font-medium text-sm ${
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 ${
                   isActive
-                    ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 shadow-sm'
+                    ? 'bg-indigo-600/15 text-indigo-300 font-semibold border border-indigo-500/30 shadow-sm shadow-indigo-950'
                     : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-200 border border-transparent'
                 }`}
               >
-                <item.icon className="w-4 h-4 shrink-0" />
-                <span>{item.label}</span>
+                <item.icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
+                <span className="text-sm">{item.label}</span>
               </Link>
             );
           })}
 
-          {/* AI Assistant Button */}
-          <button
-            onClick={() => setAiOpen(true)}
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all hover:bg-violet-500/15 text-violet-400 hover:text-violet-300 border border-transparent hover:border-violet-500/25 mt-3 group"
-          >
-            <Sparkles className="w-4 h-4 shrink-0 text-violet-400 group-hover:scale-110 transition-transform" />
-            <span className="font-medium text-sm">AI Assistant</span>
-            <span className="ml-auto text-[10px] bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">Beta</span>
-          </button>
+          <div className="pt-3">
+            <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Intelligence</p>
+            {/* AI Assistant Button */}
+            <button
+              onClick={() => setAiOpen(true)}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 bg-gradient-to-r from-violet-600/10 to-indigo-600/10 hover:from-violet-600/20 hover:to-indigo-600/20 text-violet-300 hover:text-white border border-violet-500/20 hover:border-violet-500/40 group"
+            >
+              <Sparkles className="w-4 h-4 text-violet-400 group-hover:scale-110 transition-transform" />
+              <span className="font-semibold text-sm">AI Assistant</span>
+              <span className="ml-auto text-[10px] bg-violet-500/20 text-violet-300 border border-violet-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Active</span>
+            </button>
+          </div>
         </nav>
 
-        <div className="p-4 mt-auto">
-          <div className="bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700/50">
+        <div className="p-4 mt-auto border-t border-slate-800/60">
+          <div className="bg-slate-850/80 p-3.5 rounded-xl border border-slate-700/40 shadow-sm">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-full flex items-center justify-center text-white font-semibold text-xs shrink-0 shadow-inner">
+              <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-sm">
                 {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-white truncate">{user?.full_name || 'User'}</p>
+              <div className="overflow-hidden">
+                <p className="text-xs font-semibold text-white truncate">{user?.full_name}</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold rounded-md ${
+                  <span className={`inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded ${
                     isAdmin
                       ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                       : isClubHead
@@ -106,7 +117,7 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
             </div>
             <button
               onClick={logout}
-              className="w-full flex items-center justify-center gap-2 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-400/10 py-2 rounded-xl transition-colors"
+              className="w-full flex items-center justify-center gap-2 text-xs font-medium text-slate-400 hover:text-red-400 hover:bg-red-400/10 py-2 rounded-lg transition-colors border border-transparent hover:border-red-500/20"
             >
               <LogOut className="w-3.5 h-3.5" />
               Sign out
@@ -115,134 +126,112 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
         </div>
       </aside>
 
-      {/* Mobile Navigation Drawer */}
+      {/* Mobile Drawer Overlay */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 md:hidden flex">
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          <aside className="relative w-72 max-w-[80vw] bg-slate-900 border-r border-slate-800 flex flex-col h-full z-10 p-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4 px-2">
-              <Link
-                to="/dashboard"
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-lg font-bold text-white flex items-center gap-2"
-              >
-                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">CO</span>
-                </div>
-                ClubOps AI
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+          <div className="relative w-72 bg-slate-900 border-r border-slate-800 p-6 flex flex-col h-full z-10 shadow-2xl">
+            <div className="flex items-center justify-between pb-6 border-b border-slate-800">
+              <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold text-white flex items-center gap-2.5">
+                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-black text-xs">CO</div>
+                <span>ClubOps AI</span>
               </Link>
-              <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-              >
+              <button onClick={() => setMobileMenuOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <nav className="flex-1 space-y-1 overflow-y-auto">
+            <nav className="flex-1 space-y-1.5 mt-6">
               {navItems.map((item) => {
-                const isActive = location.pathname.startsWith(item.to) && item.to !== '#';
+                const isActive = location.pathname === item.to || (item.to !== '/dashboard' && location.pathname.startsWith(item.to));
                 return (
                   <Link
                     key={item.label}
                     to={item.to}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors font-medium text-sm ${
-                      isActive
-                        ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/25'
-                        : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-200 border border-transparent'
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium ${
+                      isActive ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
-                    <item.icon className="w-4 h-4 shrink-0" />
+                    <item.icon className="w-4 h-4" />
                     <span>{item.label}</span>
                   </Link>
                 );
               })}
 
               <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setAiOpen(true);
-                }}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all bg-violet-500/10 text-violet-400 border border-violet-500/20 mt-3"
+                onClick={() => { setMobileMenuOpen(false); setAiOpen(true); }}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium bg-violet-600/15 text-violet-300 border border-violet-500/30 mt-4"
               >
-                <Sparkles className="w-4 h-4 shrink-0" />
-                <span className="font-medium text-sm">AI Assistant</span>
-                <span className="ml-auto text-[9px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded-full font-semibold uppercase">Beta</span>
+                <Sparkles className="w-4 h-4 text-violet-400" />
+                <span>AI Assistant</span>
               </button>
             </nav>
 
-            <div className="pt-4 border-t border-slate-800 mt-auto">
-              <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
-                <div className="flex items-center gap-3 mb-2.5">
-                  <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-full flex items-center justify-center text-white font-semibold text-xs shrink-0">
-                    {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-white truncate">{user?.full_name || 'User'}</p>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span className={`inline-block px-1.5 py-0.5 text-[9px] font-semibold rounded ${
-                        isClubLeader
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          : userTeams.some(t => t.role === 'TEAM_LEADER')
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-slate-700/60 text-slate-300'
-                      }`}>
-                        {getRoleLabel()}
-                      </span>
-                    </div>
+            <div className="pt-4 border-t border-slate-800">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                  {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <div className="truncate">
+                  <p className="text-xs font-medium text-white truncate">{user?.full_name}</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className={`inline-block px-1.5 py-0.5 text-[9px] font-semibold rounded ${
+                      isAdmin
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        : isClubHead
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        : isSubTeamLead
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                    }`}>
+                      {getRoleLabel()}
+                    </span>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    logout();
-                  }}
-                  className="w-full flex items-center justify-center gap-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-400/10 py-1.5 rounded-lg transition-colors"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  Sign out
-                </button>
               </div>
+              <button
+                onClick={logout}
+                className="w-full flex items-center justify-center gap-2 text-xs text-red-400 hover:bg-red-400/10 py-2 rounded-lg border border-red-500/20"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign out
+              </button>
             </div>
-          </aside>
+          </div>
         </div>
       )}
 
       {/* Main content */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
-        <header className="h-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0 gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            {/* Hamburger button on mobile */}
+        <header className="h-16 border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md flex items-center justify-between px-4 sm:px-8 shrink-0 z-10">
+          <div className="flex items-center gap-3">
+            {/* Mobile menu trigger */}
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors shrink-0"
-              aria-label="Open Navigation Menu"
+              className="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              aria-label="Open menu"
             >
-              <Menu className="w-4 h-4" />
+              <Menu className="w-5 h-5" />
             </button>
-            <h2 className="text-base sm:text-lg font-semibold text-white truncate">{title}</h2>
+            <h1 className="text-base sm:text-lg font-bold text-white tracking-tight">{title}</h1>
           </div>
 
-          {/* Header Action / AI button */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-3">
+            {/* AI Assistant Quick Launcher */}
             <button
               onClick={() => setAiOpen(true)}
-              className="flex items-center gap-2 text-xs font-semibold bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/30 text-violet-300 px-3.5 py-2 rounded-xl transition-colors shadow-sm"
+              className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:shadow-indigo-500/30 hover:scale-[1.02] active:scale-[0.98]"
             >
-              <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-              <span>AI Assistant</span>
+              <Sparkles className="w-3.5 h-3.5 text-violet-200" />
+              <span className="hidden sm:inline">Ask AI Agent</span>
+              <span className="sm:hidden">AI</span>
             </button>
           </div>
         </header>
 
         <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
-          <div className="w-full max-w-7xl mx-auto">
-            {children}
-          </div>
+          {children}
         </div>
       </main>
 

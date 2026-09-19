@@ -10,6 +10,7 @@ from app.models.team import Club, Team, SubTeam, TeamMembership, SubTeamMembersh
 from app.models.permission import Permission, RolePermission, UserPermission, ScopeType, PermissionEffect
 from app.models.chat_history import RAGChatHistory
 from app.memory.models import Memory
+from app.models.escalation import TaskEscalation, EscalationLevel, EscalationStatus
 
 __all__ = [
     "User",
@@ -38,7 +39,6 @@ __all__ = [
     "TeamMembership",
     "SubTeamMembership",
     "ClubMembership",
-
     "EventMembership",
     "TeamRole",
     "ClubRole",
@@ -50,5 +50,7 @@ __all__ = [
     "PermissionEffect",
     "RAGChatHistory",
     "Memory",
+    "TaskEscalation",
+    "EscalationLevel",
+    "EscalationStatus",
 ]
-

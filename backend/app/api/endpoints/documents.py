@@ -7,6 +7,7 @@ from app.api import deps
 from app.services import document_service
 from app.models.user import User
 from app.models.document import DocumentCategory
+from app.models.chat_history import RAGChatHistory
 from ai.rag.pipeline import execute_rag_pipeline
 from ai.rag.club_memory import check_plan_against_club_memory
 
@@ -136,33 +137,134 @@ def search_documents(
     """Hybrid lexical-semantic document search with re-ranking."""
     return document_service.search_documents(db, query, event_id=event_id, category=category, limit=limit)
 
+@router.get("/rag/history")
+def get_rag_chat_history(
+    event_id: Optional[str] = None,
+    limit: int = 50,
+    db: Session = Depends(deps.get_db),
+    current_user: Optional[User] = Depends(deps.get_current_user_optional),
+) -> Any:
+    """Returns past asked questions and answers for the user / event."""
+    query = db.query(RAGChatHistory)
+    if current_user:
+        query = query.filter(RAGChatHistory.user_id == current_user.id)
+    if event_id:
+        try:
+            query = query.filter(RAGChatHistory.event_id == int(event_id))
+        except ValueError:
+            pass
+    records = query.order_by(RAGChatHistory.created_at.asc()).limit(limit).all()
+    return {
+        "items": [
+            {
+                "id": r.id,
+                "question": r.question,
+                "answer": r.answer,
+                "citations": r.citations or [],
+                "status": r.status,
+                "proposal_ids": r.proposal_ids or [],
+                "event_id": r.event_id,
+                "created_at": r.created_at.isoformat() if r.created_at else None
+            }
+            for r in records
+        ],
+        "total": len(records)
+    }
+
+@router.delete("/rag/history")
+def clear_rag_chat_history(
+    event_id: Optional[str] = None,
+    db: Session = Depends(deps.get_db),
+    current_user: Optional[User] = Depends(deps.get_current_user_optional),
+) -> Any:
+    """Clears past RAG chat history for the user."""
+    query = db.query(RAGChatHistory)
+    if current_user:
+        query = query.filter(RAGChatHistory.user_id == current_user.id)
+    if event_id:
+        try:
+            query = query.filter(RAGChatHistory.event_id == int(event_id))
+        except ValueError:
+            pass
+    count = query.delete(synchronize_session=False)
+    db.commit()
+    return {"ok": True, "deleted_count": count}
+
 @router.post("/ask", response_model=schemas.DocumentAskResponse)
 def ask_documents(
     request: schemas.DocumentAskRequest,
     db: Session = Depends(deps.get_db),
+    current_user: Optional[User] = Depends(deps.get_current_user_optional),
 ) -> Any:
-    """Answer question with source citations via CRAG + Self-RAG."""
-    return document_service.ask_documents(db, request.question, request.event_id, request.category)
+    """Answer question with source citations via CRAG + Self-RAG and persist turn."""
+    res = document_service.ask_documents(db, request.question, request.event_id, request.category)
+    try:
+        ev_id = int(request.event_id) if request.event_id and str(request.event_id).isdigit() else None
+        safe_citations = []
+        for s in (getattr(res, "citations", None) or getattr(res, "sources", None) or []):
+            safe_citations.append({
+                "source": getattr(s, "source", str(s)),
+                "page": getattr(s, "page_number", None),
+                "section": getattr(s, "section_name", None)
+            })
+        history_entry = RAGChatHistory(
+            user_id=current_user.id if current_user else None,
+            event_id=ev_id,
+            question=request.question,
+            answer=res.answer,
+            citations=safe_citations,
+            status="COMPLETED"
+        )
+        db.add(history_entry)
+        db.commit()
+    except Exception:
+        db.rollback()
+    return res
 
 @router.post("/rag/query", response_model=schemas.RAGQueryResponse)
 def query_rag(
     request: schemas.RAGQueryRequest,
-    db: Session = Depends(deps.get_db)
+    db: Session = Depends(deps.get_db),
+    current_user: Optional[User] = Depends(deps.get_current_user_optional),
 ) -> Any:
     """
     RAG query using Hybrid Retrieval, Re-ranking, Corrective RAG (CRAG) grading,
     and Self-RAG reflection to return factual answers with source citations.
+    Saves question and answer into persistent history.
     """
     if not request.query.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Query cannot be empty")
 
-    return execute_rag_pipeline(
+    res = execute_rag_pipeline(
         db=db,
         query=request.query,
         event_id=request.event_id,
         category=request.category,
         top_k=request.top_k
     )
+    try:
+        ev_id = int(request.event_id) if request.event_id and str(request.event_id).isdigit() else None
+        safe_citations = []
+        for s in (getattr(res, "citations", None) or getattr(res, "sources", None) or []):
+            safe_citations.append({
+                "source": getattr(s, "source", str(s)),
+                "page": getattr(s, "page_number", None),
+                "section": getattr(s, "section_name", None)
+            })
+        history_entry = RAGChatHistory(
+            user_id=current_user.id if current_user else None,
+            event_id=ev_id,
+            question=request.query,
+            answer=res.answer,
+            citations=safe_citations,
+            status="COMPLETED"
+        )
+        db.add(history_entry)
+        db.commit()
+    except Exception:
+        db.rollback()
+    return res
+
 
 @router.post("/club-memory/check-plan", response_model=schemas.ClubMemoryPlanCheckResponse)
 def check_event_plan(

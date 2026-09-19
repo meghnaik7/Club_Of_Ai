@@ -32,6 +32,7 @@ from app.ai.model_selector import ModelSelector
 from app.ai.fallback import FallbackCoordinator
 from app.ai.response_validator import ResponseValidator
 from app.guardrails.output_guard import OutputGuard
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class LLMResponse(BaseModel):
     provider_used: str
     fallback_used: bool = False
     latency_ms: float = 0.0
-    token_usage: Dict[str, int] = Field(default_factory=dict)
+    token_usage: Dict[str, Any] = Field(default_factory=dict)
     correlation_id: str = ""
     success: bool = True
     metadata: Dict[str, Any] = Field(default_factory=dict)
@@ -314,8 +315,8 @@ class LLMService:
         if config.provider == "mock":
             return self._call_mock(prompt, tools)
 
-        # 2. OpenAI / OpenRouter Provider
-        if config.provider in ("openai", "openrouter"):
+        # 2. OpenAI / Azure / OpenRouter Provider
+        if config.provider in ("openai", "openrouter", "azure", "azure_openai"):
             return self._call_openai(config, prompt, system_prompt, tools, eff_timeout, eff_temp)
 
         # 3. Gemini / Google Provider
@@ -360,13 +361,34 @@ class LLMService:
         from langchain_openai import ChatOpenAI
         from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
 
-        llm = ChatOpenAI(
-            api_key=config.api_key or "sk-mock-key-for-test",
-            model=config.model,
-            base_url=config.base_url,
-            temperature=temperature,
-            request_timeout=timeout,
-        )
+        is_azure = (config.provider in ("azure", "azure_openai") or (config.base_url and "azure" in config.base_url.lower())) and config.provider != "openrouter"
+        azure_ep = config.base_url or getattr(settings, "AZURE_OPENAI_ENDPOINT", None)
+
+        if is_azure and azure_ep:
+            from langchain_openai import AzureChatOpenAI
+            llm = AzureChatOpenAI(
+                azure_endpoint=azure_ep,
+                api_key=config.api_key or getattr(settings, "AZURE_OPENAI_API_KEY", "") or getattr(settings, "OPENAI_API_KEY", ""),
+                api_version=getattr(settings, "AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
+                azure_deployment=config.model,
+                temperature=temperature,
+                request_timeout=timeout,
+            )
+        else:
+            default_headers = {}
+            if config.provider == "openrouter" or (config.base_url and "openrouter" in config.base_url.lower()):
+                default_headers = {
+                    "HTTP-Referer": "https://github.com/meghnaik7/Club_Of_Ai",
+                    "X-Title": "ClubOps AI",
+                }
+            llm = ChatOpenAI(
+                api_key=config.api_key or getattr(settings, "OPENROUTER_API_KEY", "") or "sk-mock-key-for-test",
+                model=config.model,
+                base_url=config.base_url or (getattr(settings, "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1") if config.provider == "openrouter" else None),
+                default_headers=default_headers or None,
+                temperature=temperature,
+                request_timeout=timeout,
+            )
 
         if tools:
             llm = llm.bind_tools(tools)

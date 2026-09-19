@@ -28,11 +28,29 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 def get_llm():
-    if ChatOpenAI is not None and getattr(settings, "OPENAI_API_KEY", None):
-        try:
-            return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=getattr(settings, "OPENAI_MODEL", "gpt-4o-mini"))
-        except Exception:
-            return None
+    if ChatOpenAI is None:
+        return None
+    provider = getattr(settings, "LLM_PROVIDER", "").lower()
+    if provider == "openrouter" or getattr(settings, "OPENROUTER_API_KEY", None):
+        return ChatOpenAI(
+            api_key=getattr(settings, "OPENROUTER_API_KEY", "") or getattr(settings, "OPENAI_API_KEY", ""),
+            model=getattr(settings, "OPENROUTER_MODEL", getattr(settings, "LLM_MODEL", "openai/gpt-4o-mini")),
+            base_url=getattr(settings, "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+            default_headers={
+                "HTTP-Referer": "https://github.com/meghnaik7/Club_Of_Ai",
+                "X-Title": "ClubOps AI",
+            },
+        )
+    if "azure" in provider and getattr(settings, "AZURE_OPENAI_ENDPOINT", None) and (getattr(settings, "AZURE_OPENAI_API_KEY", None) or getattr(settings, "OPENAI_API_KEY", None)):
+        from langchain_openai import AzureChatOpenAI
+        return AzureChatOpenAI(
+            azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+            api_key=settings.AZURE_OPENAI_API_KEY or settings.OPENAI_API_KEY,
+            api_version=getattr(settings, "AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
+            azure_deployment=getattr(settings, "AZURE_OPENAI_DEPLOYMENT_NAME", getattr(settings, "OPENAI_MODEL", "gpt-5.4-mini")),
+        )
+    if getattr(settings, "OPENAI_API_KEY", None):
+        return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=getattr(settings, "OPENAI_MODEL", "openai/gpt-4o-mini"))
     return None
 
 def _parse_date(d: Any) -> Optional[datetime]:
@@ -62,33 +80,44 @@ def generate_task_graph(
     """Generate tasks, subtasks, dependencies, phases, and suggested owners from an event brief."""
     base_date = _parse_date(event_date) or (datetime.utcnow() + timedelta(days=14))
     
-    # Check if LLM is available for custom generation
-    llm = get_llm()
-    if llm:
-        sys_msg = SystemMessage(content=(
+    # Check if centralized LLM is available for custom generation
+    try:
+        from app.ai.llm_service import llm_service
+        from app.ai.response_validator import ResponseValidator
+        sys_msg = (
             "You are an expert event planning AI. Given an event brief, generate a comprehensive, structured "
-            "task graph with phases (PRE_EVENT, DAY_OF, POST_EVENT), tasks, subtasks, dependencies, estimated duration, "
-            "and suggested skills. Return strict JSON format with key 'tasks'."
-        ))
-        user_msg = HumanMessage(content=(
+            "task graph with at least 5 tasks across phases (PRE_EVENT, DAY_OF, POST_EVENT), tasks, subtasks, dependencies, estimated duration, "
+            "and suggested skills. Return strict JSON format with key 'tasks' as a list of task objects."
+        )
+        user_msg = (
             f"Event Brief: {event_brief}\n"
             f"Event Target Date: {_format_date(base_date)}\n"
             f"Target Attendees: {target_attendees or 'Not specified'}\n"
-        ))
-        try:
-            res = llm.invoke([sys_msg, user_msg]).content
-            if "{" in res and "}" in res:
-                parsed = json.loads(res[res.find("{"):res.rfind("}")+1])
-                tasks = parsed.get("tasks", [])
-                if tasks:
-                    return {
-                        "event_brief": event_brief,
-                        "base_event_date": _format_date(base_date),
-                        "total_tasks": len(tasks),
-                        "tasks": tasks
-                    }
-        except Exception as e:
-            logger.error(f"Error calling LLM for task graph generation: {e}")
+        )
+        res = llm_service.invoke(prompt=user_msg, system_prompt=sys_msg).content
+        parsed = ResponseValidator.extract_json(res)
+        if isinstance(parsed, dict) and parsed.get("tasks"):
+            raw_tasks = parsed.get("tasks", [])
+            normalized_tasks = []
+            for t in raw_tasks:
+                if isinstance(t, dict):
+                    if "title" not in t and "task" in t:
+                        t["title"] = t["task"]
+                    if "estimated_duration_hours" not in t:
+                        t["estimated_duration_hours"] = t.get("duration_hours") or 4
+                    if "subtasks" not in t:
+                        t["subtasks"] = []
+                    if "dependencies" not in t:
+                        t["dependencies"] = []
+                    normalized_tasks.append(t)
+            return {
+                "event_brief": event_brief,
+                "base_event_date": _format_date(base_date),
+                "total_tasks": len(normalized_tasks),
+                "tasks": normalized_tasks
+            }
+    except Exception as e:
+        logger.info(f"Handled LLM failover in task graph generation: {e}")
 
     # Robust algorithmic fallback creating a complete, production-ready event task graph
     pre_start = base_date - timedelta(days=14)
@@ -197,30 +226,41 @@ def split_task(
     total_duration_hours: Optional[int] = None
 ) -> Dict[str, Any]:
     """Break a large task into smaller executable subtasks with dependencies."""
-    llm = get_llm()
-    if llm:
-        sys_msg = SystemMessage(content=(
+    try:
+        from app.ai.llm_service import llm_service
+        from app.ai.response_validator import ResponseValidator
+        sys_msg = (
             "You are a project management decomposition specialist. Break the specified task into "
             "executable, sequential subtasks with duration and suggested skills. Return JSON with key 'subtasks'."
-        ))
+        )
         prompt = (
             f"Task: {task_title}\n"
             f"Description: {task_description or 'No extra description'}\n"
             f"Desired number of subtasks: {num_subtasks}\n"
             f"Total hours: {total_duration_hours or 6}\n"
         )
-        try:
-            res = llm.invoke([sys_msg, HumanMessage(content=prompt)]).content
-            if "{" in res and "}" in res:
-                parsed = json.loads(res[res.find("{"):res.rfind("}")+1])
-                return {
-                    "parent_task_id": task_id,
-                    "parent_task_title": task_title,
-                    "subtasks_count": len(parsed.get("subtasks", [])),
-                    "subtasks": parsed.get("subtasks", [])
-                }
-        except Exception as e:
-            logger.error(f"Error calling LLM in split_task: {e}")
+        res = llm_service.invoke(prompt=prompt, system_prompt=sys_msg).content
+        parsed = ResponseValidator.extract_json(res)
+        if isinstance(parsed, dict) and parsed.get("subtasks"):
+            raw_subtasks = parsed.get("subtasks", [])
+            normalized = []
+            for idx, st in enumerate(raw_subtasks):
+                if isinstance(st, dict):
+                    if "title" not in st and "task" in st:
+                        st["title"] = st["task"]
+                    if "depends_on_subtask_index" not in st:
+                        st["depends_on_subtask_index"] = idx - 1 if idx > 0 else None
+                    if "suggested_skills" not in st:
+                        st["suggested_skills"] = st.get("skills") or ["Planning", "Execution"]
+                    normalized.append(st)
+            return {
+                "parent_task_id": task_id,
+                "parent_task_title": task_title,
+                "subtasks_count": len(normalized),
+                "subtasks": normalized
+            }
+    except Exception as e:
+        logger.info(f"Handled LLM failover in split_task: {e}")
 
     # Algorithmic decomposition
     dur_per_subtask = max(1, (total_duration_hours or 6) // num_subtasks)

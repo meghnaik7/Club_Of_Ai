@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.database import init_db
 from app.core.observability import init_observability, is_observability_enabled
 from app.api.api import api_router
+from ai.agents.checkpointer import checkpointer_manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -22,7 +23,13 @@ async def lifespan(app: FastAPI):
     init_db()
     # Initialize LangSmith Observability
     init_observability()
-    yield
+    # Initialize cloud checkpointer (creates tables in PostgreSQL if available)
+    checkpointer_manager.get_checkpointer()
+    try:
+        yield
+    finally:
+        # Gracefully close connection pool on shutdown
+        checkpointer_manager.close_checkpointer_pool()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

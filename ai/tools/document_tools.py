@@ -69,6 +69,9 @@ def search_documents(query: str, event_id: Optional[Union[str, int]] = None, cat
     db = SessionLocal()
     try:
         return search_documents_rag(db, query, event_id=event_id, category=category)
+    except Exception:
+        # Transparent fallback: return empty list without crashing
+        return []
     finally:
         db.close()
 
@@ -93,6 +96,15 @@ def ask_documents(question: str, event_id: Optional[Union[str, int]] = None, cat
                 for c in res.citations
             ],
             "crag_eval": res.crag_eval.model_dump()
+        }
+    except Exception as e:
+        from app.ai.errors import classify_exception
+        ai_err = classify_exception(e)
+        return {
+            "answer": "No reliable source found. Knowledge retrieval was unable to complete: " + ai_err.user_message,
+            "confidence": 0.0,
+            "citations": [],
+            "error": ai_err.to_user_dict()["error"]
         }
     finally:
         db.close()

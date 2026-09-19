@@ -10,6 +10,7 @@ class TaskStatus(str, enum.Enum):
     IN_PROGRESS = "IN_PROGRESS"
     DONE = "DONE"
     BLOCKED = "BLOCKED"
+    CANCELLED = "CANCELLED"
 
 class TaskPriority(str, enum.Enum):
     LOW = "LOW"

@@ -69,4 +69,10 @@ from .permission import (
     UserTeamSummary,
     UserEventSummary
 )
-
+from .escalation import (
+    EscalationResult,
+    EscalationConfig,
+    EscalationAcknowledgeRequest,
+    EscalationResolveRequest,
+    EscalationManualPromoteRequest,
+)

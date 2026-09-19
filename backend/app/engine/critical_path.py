@@ -24,6 +24,17 @@ def calculate_critical_path(db: Session, event_id: int) -> Dict[str, Any]:
                 adj[t.id].append(dep.dependent_task_id)
                 in_degree[dep.dependent_task_id] += 1
 
+    # If there are no task dependencies, no critical path exists
+    has_dependencies = any(len(edges) > 0 for edges in adj.values())
+    if not has_dependencies:
+        return {
+            "critical_path_length": 0,
+            "critical_path": [],
+            "critical_task_ids": [],
+            "critical_tasks": [],
+            "message": "No task dependencies defined for this event."
+        }
+
     # Find longest path (critical path) treating each task as weight 1, or weighted by priority/due date
     # Here we just do a simple longest path in DAG
     topo_order = []

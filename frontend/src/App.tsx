@@ -17,6 +17,7 @@ import TaskList from './pages/TaskList';
 import TeamManagement from './pages/TeamManagement';
 import PermissionManagement from './pages/PermissionManagement';
 import AdminOrganization from './pages/AdminOrganization';
+import DocumentList from './pages/DocumentList';
 import './App.css';
 
 function App() {
@@ -59,6 +60,9 @@ function App() {
 
             {/* Tasks */}
             <Route path="/tasks" element={<TaskList />} />
+
+            {/* Documents & RAG Knowledge Brain */}
+            <Route path="/documents" element={<DocumentList />} />
           </Route>
         </Routes>
       </Router>

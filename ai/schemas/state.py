@@ -46,4 +46,3 @@ class AgentState(TypedDict, total=False):
     fallback_used: Optional[bool]
     iteration_count: Optional[int]
     tool_call_count: Optional[int]
-

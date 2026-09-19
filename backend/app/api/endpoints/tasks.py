@@ -252,7 +252,6 @@ def assign_volunteer(
             detail="Permission denied: Cannot assign this volunteer to this task."
         )
 
-
     # Avoid duplicate assignment
     existing = db.query(TaskAssignment).filter(
         TaskAssignment.task_id == task_id,

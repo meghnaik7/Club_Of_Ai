@@ -1,20 +1,9 @@
 import re
 import json
-import logging
 from typing import Literal, Optional, List, Sequence, Dict, Any
-
-from ai.tools.compat import HumanMessage, SystemMessage, BaseMessage, AIMessage, ToolMessage
-
-try:
-    from langgraph.graph import StateGraph, START, END  # type: ignore
-    from langgraph.prebuilt import ToolNode  # type: ignore
-    HAS_LANGGRAPH = True
-except (ImportError, Exception):
-    StateGraph = None
-    START = None
-    END = None
-    ToolNode = None
-    HAS_LANGGRAPH = False
+from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage, AIMessage, ToolMessage
+from langgraph.graph import StateGraph, START, END
+from langgraph.prebuilt import ToolNode
 
 from ai.schemas.state import AgentState
 from ai.prompts.system_prompt import SUPERVISOR_PROMPT
@@ -62,17 +51,15 @@ from ai.tools.context_tools import (
     search_volunteers,
     search_event_data
 )
-
+from ai.tools.command_tool import execute_command
 try:
     from app.core.config import settings
     from app.ai.llm_service import llm_service
     from app.ai.errors import classify_exception, AIError
 except ImportError:
-    from backend.app.core.config import settings  # type: ignore
-    from backend.app.ai.llm_service import llm_service  # type: ignore
-    from backend.app.ai.errors import classify_exception, AIError  # type: ignore
-
-logger = logging.getLogger(__name__)
+    from backend.app.core.config import settings
+    from backend.app.ai.llm_service import llm_service
+    from backend.app.ai.errors import classify_exception, AIError
 
 # Initialize tools
 tools = [
@@ -109,33 +96,27 @@ tools = [
     get_project_summary,
     search_tasks,
     search_volunteers,
-    search_event_data
+    search_event_data,
+    execute_command
 ]
 
-base_tool_node = ToolNode(tools) if (HAS_LANGGRAPH and ToolNode is not None) else None
-
+base_tool_node = ToolNode(tools)
 
 def safe_tool_node(state: AgentState) -> Dict[str, Any]:
     """Protected tool execution node catching exceptions and returning controlled state."""
-    if base_tool_node is None:
-        return {"messages": []}
     try:
         return base_tool_node.invoke(state)
     except Exception as exc:
         classified = classify_exception(exc)
-        messages = state.get("messages") or []
-        last_msg = messages[-1] if messages else None
+        last_msg = state["messages"][-1]
         tool_messages = []
-        tool_calls = getattr(last_msg, "tool_calls", None)
-        if tool_calls:
-            for tc in tool_calls:
+        if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
+            for tc in last_msg.tool_calls:
                 call_id = tc.get("id") or "call_err"
-
                 tool_messages.append(ToolMessage(
                     content=f"Error executing tool: {classified.user_message}",
                     tool_call_id=call_id
                 ))
-
         return {
             "messages": tool_messages,
             "error": {
@@ -144,7 +125,6 @@ def safe_tool_node(state: AgentState) -> Dict[str, Any]:
                 "retryable": classified.retryable,
             }
         }
-
 
 def trim_messages_for_short_term_memory(messages: Sequence[BaseMessage], max_recent: int = 10) -> List[BaseMessage]:
     """
@@ -168,7 +148,6 @@ def trim_messages_for_short_term_memory(messages: Sequence[BaseMessage], max_rec
 
     return list(messages)
 
-
 def resolve_context_references(user_text: str, event_name: Optional[str]) -> str:
     """
     Pronoun / reference resolution for multi-turn short-term memory.
@@ -185,9 +164,8 @@ def resolve_context_references(user_text: str, event_name: Optional[str]) -> str
     resolved = re.sub(r"(?i)\bto\s+it\b", f"to {event_name}", resolved)
     return resolved
 
-
 def call_model(state: AgentState) -> Dict[str, Any]:
-    messages = list(state.get("messages") or [])
+    messages = state["messages"]
     user_id = state.get("user_id")
     event_id = state.get("active_event_id")
     event_name = state.get("active_event_name")
@@ -237,13 +215,8 @@ def call_model(state: AgentState) -> Dict[str, Any]:
     # 3. Long-Term Memory Injection (pre-turn scoped retrieval)
     memory_context = ""
     try:
-        try:
-            from app.db.session import SessionLocal
-            from app.agents.memory_manager import MemoryManager
-        except ImportError:
-            from backend.app.db.session import SessionLocal  # type: ignore
-            from backend.app.agents.memory_manager import MemoryManager  # type: ignore
-
+        from app.db.session import SessionLocal
+        from app.agents.memory_manager import MemoryManager
         db = SessionLocal()
         try:
             query_str = messages[last_human_idx].content if last_human_idx >= 0 else ""
@@ -259,7 +232,7 @@ def call_model(state: AgentState) -> Dict[str, Any]:
         finally:
             db.close()
     except Exception:
-        # Memory retrieval failure does NOT crash the agent
+        # Section 13: Memory retrieval failure does NOT crash the agent
         memory_context = ""
 
     # Ensure system prompt is present with long-term memory facts if available
@@ -307,7 +280,6 @@ def call_model(state: AgentState) -> Dict[str, Any]:
         "iteration_count": iter_count + 1
     }
 
-
 def should_continue(state: AgentState) -> Literal["tools", "__end__"]:
     # Stop immediately if an unrecoverable error occurred
     if state.get("error"):
@@ -318,65 +290,40 @@ def should_continue(state: AgentState) -> Literal["tools", "__end__"]:
     if iter_count >= max_iters:
         return "__end__"
 
-    messages = state.get("messages") or []
-    last_message = messages[-1] if messages else None
-
-    tool_calls = getattr(last_message, "tool_calls", None)
-    if tool_calls:
+    messages = state["messages"]
+    last_message = messages[-1]
+    
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
         return "tools"
     return "__end__"
 
+workflow = StateGraph(AgentState)
 
+workflow.add_node("agent", call_model)
+workflow.add_node("tools", safe_tool_node)
 
-if HAS_LANGGRAPH and StateGraph is not None and START is not None and END is not None:
-    workflow = StateGraph(AgentState)
-    workflow.add_node("agent", call_model)
-    workflow.add_node("tools", safe_tool_node)
-    workflow.add_edge(START, "agent")
-    workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", "__end__": END})
-    workflow.add_edge("tools", "agent")
+workflow.add_edge(START, "agent")
+workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", "__end__": END})
+workflow.add_edge("tools", "agent")
 
-    try:
-        from langgraph.checkpoint.memory import MemorySaver  # type: ignore
-        memory_checkpointer = MemorySaver()
-    except (ImportError, Exception):
-        memory_checkpointer = None
+from ai.agents.checkpointer import checkpointer_manager, get_checkpointer
 
-    if memory_checkpointer is not None:
-        compiled_graph = workflow.compile(checkpointer=memory_checkpointer)
+# Persistent checkpointer for thread memory persistence across conversational turns
+# Defaults to PostgreSQL (PostgresSaver with ConnectionPool) in cloud, or resilient MemorySaver fallback
+memory_checkpointer = get_checkpointer()
+
+# Compile graph with persistent checkpointer
+compiled_graph = workflow.compile(checkpointer=memory_checkpointer)
+
+def recompile_graph(checkpointer=None):
+    """Recompiles the LangGraph StateGraph with a specified or updated checkpointer."""
+    global compiled_graph, memory_checkpointer
+    if checkpointer is not None:
+        memory_checkpointer = checkpointer
     else:
-        compiled_graph = workflow.compile()
-else:
-    class FallbackCompiledGraph:
-        def __init__(self):
-            self._threads: Dict[str, Any] = {}
-
-        def get_state(self, config: Optional[Dict[str, Any]]):
-            thread_id = (config or {}).get("configurable", {}).get("thread_id", "default")
-            class CheckpointState:
-                def __init__(self, values):
-                    self.values = values
-            return CheckpointState(self._threads.get(thread_id, {"messages": []}))
-
-        def invoke(self, state: Dict[str, Any], *args, config: Optional[Dict[str, Any]] = None, **kwargs):
-            thread_id = (config or {}).get("configurable", {}).get("thread_id") or state.get("thread_id", "default")
-            existing = self._threads.get(thread_id, {"messages": []})
-            all_messages = list(existing.get("messages", [])) + list(state.get("messages", []))
-            curr_state: Dict[str, Any] = dict(state)
-            curr_state["messages"] = all_messages
-
-            result = call_model(curr_state)  # type: ignore
-
-            out_messages = all_messages + list(result.get("messages", []))
-            saved_state = dict(curr_state)
-            saved_state.update(result)
-            saved_state["messages"] = out_messages
-            self._threads[thread_id] = saved_state
-            return saved_state
-
-    compiled_graph = FallbackCompiledGraph()
-    memory_checkpointer = None
-
+        memory_checkpointer = get_checkpointer()
+    compiled_graph = workflow.compile(checkpointer=memory_checkpointer)
+    return compiled_graph
 
 def get_thread_config(thread_id: str, user_id: Optional[int] = None):
     """Returns runtime execution config for thread checkpointer persistence."""
@@ -384,3 +331,4 @@ def get_thread_config(thread_id: str, user_id: Optional[int] = None):
     if user_id is not None:
         cfg["configurable"]["user_id"] = str(user_id)
     return cfg
+

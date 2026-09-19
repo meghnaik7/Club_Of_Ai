@@ -17,18 +17,17 @@ def run_ai_command(
 ) -> dict:
     """
     Entry point to run the AI agent given a user command with short-term thread persistence,
-    LangSmith observability, and long-term memory extraction.
+    LangSmith cloud observability, and long-term memory extraction.
     """
     effective_thread_id = thread_id or f"user-thread-{user_id}"
     config = get_thread_config(thread_id=effective_thread_id, user_id=user_id)
-
-    # Attach observability metadata
     config["run_name"] = f"AI Command (User {user_id})"
     config["tags"] = ["agent", "clubops", f"user:{user_id}"]
     config["metadata"] = {
         "user_id": user_id,
         "active_event_id": active_event_id,
         "command": command,
+        "club_id": club_id,
         "thread_id": effective_thread_id
     }
 
@@ -46,7 +45,6 @@ def run_ai_command(
 
     # Run the graph with checkpointer and observability config
     result = compiled_graph.invoke(initial_state, config=config)
-
     messages = result.get("messages", [])
     response_text = "No response generated."
 
@@ -79,4 +77,3 @@ def run_ai_command(
         "thread_id": effective_thread_id,
         "active_event_name": result.get("active_event_name")
     }
-

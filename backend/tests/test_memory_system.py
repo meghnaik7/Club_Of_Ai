@@ -36,7 +36,6 @@ try:
 except ImportError:
     from ai.tools.compat import HumanMessage, AIMessage, SystemMessage
 
-
 class TestMemorySystem(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

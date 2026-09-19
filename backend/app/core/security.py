@@ -5,29 +5,9 @@ import json
 import os
 from datetime import datetime, timedelta
 from typing import Any, Union
+import bcrypt
 
 from app.core.config import settings
-
-try:
-    from passlib.context import CryptContext
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-    def verify_password(plain_password: str, hashed_password: str) -> bool:
-        return pwd_context.verify(plain_password, hashed_password)
-
-    def get_password_hash(password: str) -> str:
-        return pwd_context.hash(password)
-except ImportError:
-    def verify_password(plain_password: str, hashed_password: str) -> bool:
-        if ":" in hashed_password:
-            salt, h = hashed_password.split(":", 1)
-            return hmac.compare_digest(hashlib.sha256((salt + plain_password).encode()).hexdigest(), h)
-        return plain_password == hashed_password
-
-    def get_password_hash(password: str) -> str:
-        salt = os.urandom(8).hex()
-        h = hashlib.sha256((salt + password).encode()).hexdigest()
-        return f"{salt}:{h}"
 
 ALGORITHM = "HS256"
 
@@ -93,3 +73,21 @@ def create_access_token(
     to_encode = {"exp": expire, "sub": str(subject)}
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    try:
+        if hashed_password.startswith("$2"):
+            return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+        if ":" in hashed_password:
+            salt, h = hashed_password.split(":", 1)
+            return hmac.compare_digest(hashlib.sha256((salt + plain_password).encode()).hexdigest(), h)
+        return plain_password == hashed_password
+    except Exception:
+        return False
+
+
+def get_password_hash(password: str) -> str:
+    # bcrypt limits passwords to 72 bytes
+    pw_bytes = password.encode("utf-8")[:72]
+    return bcrypt.hashpw(pw_bytes, bcrypt.gensalt()).decode("utf-8")

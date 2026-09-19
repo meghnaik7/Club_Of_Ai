@@ -49,3 +49,7 @@ try:
 except ImportError:
     pass
 
+try:
+    from app.models.escalation import TaskEscalation
+except ImportError:
+    pass

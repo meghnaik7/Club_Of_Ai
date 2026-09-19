@@ -293,5 +293,49 @@ class TestAdvancedRAGPipeline(unittest.TestCase):
         self.assertIn("recommendations", mem_data)
         self.assertIn("overall_risk_assessment", mem_data)
 
+    def test_rag_chat_history_persistence(self):
+        """Test that asking RAG questions persists history and can be retrieved on open."""
+        # 1. Query RAG
+        resp = self.client.post(
+            "/api/documents/rag/query",
+            json={"query": "What went wrong with the projector?"}
+        )
+        self.assertEqual(resp.status_code, 200)
+
+        # 2. Retrieve history (simulating user opening RAG / document brain)
+        hist_resp = self.client.get("/api/documents/rag/history")
+        self.assertEqual(hist_resp.status_code, 200)
+        history = hist_resp.json()
+        self.assertIn("items", history)
+        items = history["items"]
+        self.assertIsInstance(items, list)
+        self.assertGreater(len(items), 0)
+        # Find the question in items
+        questions = [item["question"] for item in items]
+        self.assertIn("What went wrong with the projector?", questions)
+        matching = [item for item in items if item["question"] == "What went wrong with the projector?"][0]
+        self.assertIsNotNone(matching["answer"])
+        self.assertIn("citations", matching)
+
+        # 3. Clear history
+        del_resp = self.client.delete("/api/documents/rag/history")
+        self.assertEqual(del_resp.status_code, 200)
+        
+        # 4. Verify history is cleared
+        cleared_resp = self.client.get("/api/documents/rag/history")
+        self.assertEqual(cleared_resp.status_code, 200)
+        self.assertEqual(len(cleared_resp.json()["items"]), 0)
+
+    def test_langgraph_checkpointer_persistence(self):
+        """Test that LangGraph checkpointer is configured and retains thread state."""
+        from ai.agents.graph import compiled_graph, memory_checkpointer, get_thread_config
+        self.assertIsNotNone(memory_checkpointer)
+        self.assertIsNotNone(compiled_graph.checkpointer)
+        
+        config = get_thread_config(thread_id="thread-test-123", user_id=42)
+        self.assertIn("configurable", config)
+        self.assertEqual(config["configurable"]["thread_id"], "thread-test-123")
+        self.assertEqual(config["configurable"]["user_id"], "42")
+
 if __name__ == "__main__":
     unittest.main()
