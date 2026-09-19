@@ -18,12 +18,18 @@ except ImportError:
     from backend.app.models.task import Task, TaskAssignment, TaskStatus
     from backend.app.models.event import Event
 
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, HumanMessage
+try:
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import SystemMessage, HumanMessage
+except ImportError:
+    ChatOpenAI = None
+    from ai.tools.compat import SystemMessage, HumanMessage
 
 logger = logging.getLogger(__name__)
 
 def get_llm():
+    if ChatOpenAI is None:
+        return None
     provider = getattr(settings, "LLM_PROVIDER", "").lower()
     if provider == "openrouter" or getattr(settings, "OPENROUTER_API_KEY", None):
         return ChatOpenAI(

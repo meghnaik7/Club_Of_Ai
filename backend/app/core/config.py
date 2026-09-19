@@ -1,8 +1,13 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+# Load environment variables early so os.environ is populated for all AI/agent runtimes
+load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR.parent / ".env")
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "ClubOps AI"
@@ -71,6 +76,16 @@ class Settings(BaseSettings):
     MAX_TOOL_CALLS: int = int(os.getenv("MAX_TOOL_CALLS", "15"))
     MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "2"))
     
+    # LangSmith / Observability Settings
+    LANGCHAIN_TRACING_V2: str = os.getenv("LANGCHAIN_TRACING_V2", "true")
+    LANGCHAIN_API_KEY: str = os.getenv("LANGCHAIN_API_KEY", "")
+    LANGCHAIN_PROJECT: str = os.getenv("LANGCHAIN_PROJECT", "ClubOps-AI")
+    LANGCHAIN_ENDPOINT: str = os.getenv("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
+    LANGSMITH_TRACING: str = os.getenv("LANGSMITH_TRACING", "true")
+    LANGSMITH_API_KEY: str = os.getenv("LANGSMITH_API_KEY", "")
+    LANGSMITH_PROJECT: str = os.getenv("LANGSMITH_PROJECT", "ClubOps-AI")
+    LANGSMITH_ENDPOINT: str = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
+    
     # RAG Parameters
     CHUNK_SIZE: int = 500
     CHUNK_OVERLAP: int = 100
@@ -119,14 +134,12 @@ class Settings(BaseSettings):
             port = self.POSTGRES_PORT or "5432"
             db_name = self.POSTGRES_DB or "clubops_ai"
             self.DATABASE_URL = f"postgresql://{user}:{pwd}@{host}:{port}/{db_name}"
-        
         # Checkpointer URL defaults to DATABASE_URL if not explicitly overridden
         cp_url = os.getenv("CHECKPOINTER_DATABASE_URL") or self.CHECKPOINTER_DATABASE_URL
         if cp_url and "${" not in cp_url:
             self.CHECKPOINTER_DATABASE_URL = cp_url
         else:
             self.CHECKPOINTER_DATABASE_URL = self.DATABASE_URL
-
         # Ensure LangSmith / LangChain tracing environment variables are populated in os.environ
         api_key = self.LANGCHAIN_API_KEY or self.LANGSMITH_API_KEY or os.getenv("LANGCHAIN_API_KEY") or os.getenv("LANGSMITH_API_KEY")
         if api_key:

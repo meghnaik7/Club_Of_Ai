@@ -5,14 +5,21 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.observability import traceable
 from app.models.announcement import Announcement
 from app.models.event import Event
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, HumanMessage
+try:
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import SystemMessage, HumanMessage
+except ImportError:
+    ChatOpenAI = None
+    SystemMessage = None
+    HumanMessage = None
 
 logger = logging.getLogger(__name__)
-
 def get_llm():
+    if ChatOpenAI is None:
+        return None
     provider = getattr(settings, "LLM_PROVIDER", "").lower()
     if provider == "openrouter" or getattr(settings, "OPENROUTER_API_KEY", None):
         return ChatOpenAI(
@@ -60,6 +67,7 @@ def create_announcement(
     db.refresh(announcement)
     return announcement
 
+@traceable(name="generate_announcement", run_type="chain")
 def generate_announcement(
     db: Session,
     event_id: int,

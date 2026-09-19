@@ -77,8 +77,6 @@ def read_users(
     Get list of all users.
     """
     return db.query(User).all()
-
-
 @router.get("/me/summary", response_model=schemas.UserAuthzSummary)
 def read_user_authz_summary(
     db: Session = Depends(deps.get_db),
@@ -128,5 +126,4 @@ def read_user_events(
     from app.services.authz import AuthorizationService
     summary = AuthorizationService.get_user_authz_summary(db, current_user)
     return summary.get("event_roles", [])
-
 

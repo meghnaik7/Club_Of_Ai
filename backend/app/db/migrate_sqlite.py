@@ -24,24 +24,22 @@ def migrate():
         cur.execute("ALTER TABLE tasks ADD COLUMN created_by INTEGER REFERENCES users(id)")
 
     # Check audit_logs columns
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='audit_logs'")
-    if cur.fetchone():
-        cur.execute("PRAGMA table_info(audit_logs)")
-        audit_cols = [r[1] for r in cur.fetchall()]
-        print(f"Existing audit_logs columns: {audit_cols}")
+    cur.execute("PRAGMA table_info(audit_logs)")
+    audit_cols = [r[1] for r in cur.fetchall()]
+    print(f"Existing audit_logs columns: {audit_cols}")
 
-        if "actor_id" not in audit_cols:
-            print("Adding actor_id to audit_logs...")
-            cur.execute("ALTER TABLE audit_logs ADD COLUMN actor_id INTEGER REFERENCES users(id)")
-        if "scope_type" not in audit_cols:
-            print("Adding scope_type to audit_logs...")
-            cur.execute("ALTER TABLE audit_logs ADD COLUMN scope_type VARCHAR(50)")
-        if "scope_id" not in audit_cols:
-            print("Adding scope_id to audit_logs...")
-            cur.execute("ALTER TABLE audit_logs ADD COLUMN scope_id INTEGER")
-        if "meta_data" not in audit_cols:
-            print("Adding meta_data to audit_logs...")
-            cur.execute("ALTER TABLE audit_logs ADD COLUMN meta_data JSON")
+    if "actor_id" not in audit_cols:
+        print("Adding actor_id to audit_logs...")
+        cur.execute("ALTER TABLE audit_logs ADD COLUMN actor_id INTEGER REFERENCES users(id)")
+    if "scope_type" not in audit_cols:
+        print("Adding scope_type to audit_logs...")
+        cur.execute("ALTER TABLE audit_logs ADD COLUMN scope_type VARCHAR(50)")
+    if "scope_id" not in audit_cols:
+        print("Adding scope_id to audit_logs...")
+        cur.execute("ALTER TABLE audit_logs ADD COLUMN scope_id INTEGER")
+    if "meta_data" not in audit_cols:
+        print("Adding meta_data to audit_logs...")
+        cur.execute("ALTER TABLE audit_logs ADD COLUMN meta_data JSON")
 
     conn.commit()
     conn.close()

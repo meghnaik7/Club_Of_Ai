@@ -16,6 +16,9 @@ def create_announcement(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """Create an announcement draft for an event."""
+    from app.services.authz import AuthorizationService
+    AuthorizationService.require_permission(db, current_user, "announcement.create")
+
     return announcement_service.create_announcement(
         db=db,
         title=announcement_in.title,
@@ -33,6 +36,9 @@ def generate_announcement(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """Generate announcement content using live event information."""
+    from app.services.authz import AuthorizationService
+    AuthorizationService.require_permission(db, current_user, "announcement.create")
+
     try:
         return announcement_service.generate_announcement(
             db=db,
@@ -52,6 +58,9 @@ def generate_variants_from_content(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """Generate variants for WhatsApp, email, and Instagram directly from text."""
+    from app.services.authz import AuthorizationService
+    AuthorizationService.require_permission(db, current_user, "announcement.create")
+
     return announcement_service.generate_announcement_variants(
         db=db,
         content=content,
@@ -65,6 +74,9 @@ def generate_announcement_variants(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """Generate variants for WhatsApp, email, and Instagram for an existing announcement draft."""
+    from app.services.authz import AuthorizationService
+    AuthorizationService.require_permission(db, current_user, "announcement.create")
+
     announcement = announcement_service.get_announcement(db, announcement_id)
     if not announcement:
         raise HTTPException(status_code=404, detail="Announcement not found")
@@ -114,6 +126,9 @@ def update_announcement(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """Modify announcement content before sending/copying."""
+    from app.services.authz import AuthorizationService
+    AuthorizationService.require_permission(db, current_user, "announcement.update")
+
     announcement = announcement_service.update_announcement(
         db=db,
         announcement_id=announcement_id,
@@ -134,6 +149,9 @@ def delete_announcement(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """Delete an announcement draft."""
+    from app.services.authz import AuthorizationService
+    AuthorizationService.require_permission(db, current_user, "announcement.delete")
+
     success = announcement_service.delete_announcement(db, announcement_id)
     if not success:
         raise HTTPException(status_code=404, detail="Announcement not found")

@@ -7,12 +7,16 @@ from app.db.base_class import Base
 
 
 class TeamRole(str, enum.Enum):
+    SUBTEAM_LEAD = "SUBTEAM_LEAD"
     TEAM_LEADER = "TEAM_LEADER"
+    VOLUNTEER = "VOLUNTEER"
     TEAM_MEMBER = "TEAM_MEMBER"
 
 
 class ClubRole(str, enum.Enum):
+    CLUB_HEAD = "CLUB_HEAD"
     CLUB_LEADER = "CLUB_LEADER"
+
 
 
 class EventRole(str, enum.Enum):
@@ -38,25 +42,31 @@ class Team(Base):
     __tablename__ = "teams"
 
     id = Column(Integer, primary_key=True, index=True)
-    club_id = Column(Integer, ForeignKey("clubs.id"), nullable=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String, index=True, nullable=False)
     description = Column(Text, nullable=True)
+    lead_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     club = relationship("Club", back_populates="teams")
+    lead = relationship("User", foreign_keys=[lead_id])
     memberships = relationship("TeamMembership", back_populates="team", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="team")
+
+
+# Alias SubTeam to Team
+SubTeam = Team
 
 
 class TeamMembership(Base):
     __tablename__ = "team_memberships"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False, index=True)
-    role = Column(Enum(TeamRole), default=TeamRole.TEAM_MEMBER, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(Enum(TeamRole), default=TeamRole.VOLUNTEER, nullable=False)
     joined_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
 
@@ -65,13 +75,16 @@ class TeamMembership(Base):
     user = relationship("User", backref="team_memberships")
 
 
+SubTeamMembership = TeamMembership
+
+
 class ClubMembership(Base):
     __tablename__ = "club_memberships"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    club_id = Column(Integer, ForeignKey("clubs.id"), nullable=False, index=True)
-    role = Column(Enum(ClubRole), default=ClubRole.CLUB_LEADER, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(Enum(ClubRole), default=ClubRole.CLUB_HEAD, nullable=False)
     joined_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
 
@@ -84,8 +97,8 @@ class EventMembership(Base):
     __tablename__ = "event_memberships"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    event_id = Column(Integer, ForeignKey("events.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
     role = Column(Enum(EventRole), default=EventRole.EVENT_MEMBER, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 

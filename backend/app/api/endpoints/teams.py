@@ -63,7 +63,14 @@ def list_teams(
 ) -> Any:
     """List all teams visible to the current user."""
     AuthorizationService.require_permission(db, current_user, "team.view")
-    teams = db.query(Team).all()
+    if AuthorizationService.is_admin(current_user):
+        teams = db.query(Team).all()
+    elif AuthorizationService.is_club_head(db, current_user):
+        user_club = AuthorizationService.get_user_club_id(db, current_user)
+        teams = db.query(Team).filter(Team.club_id == user_club).all()
+    else:
+        user_teams = list(AuthorizationService.get_user_team_roles(db, current_user).keys())
+        teams = db.query(Team).filter(Team.id.in_(user_teams)).all() if user_teams else []
     return [_format_team_response(t, db) for t in teams]
 
 
@@ -73,14 +80,25 @@ def create_team(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
-    """Create a new team (Club Leader only)."""
+    """Create a new team (Admin or Club Head within their club)."""
     AuthorizationService.require_permission(db, current_user, "team.create", scope_type="CLUB")
+
+    club_id = team_in.club_id
+    if not AuthorizationService.is_admin(current_user):
+        user_club = AuthorizationService.get_user_club_id(db, current_user)
+        if not user_club or (club_id and club_id != user_club):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot create team for another club.")
+        club_id = user_club
+
+    if not club_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="SubTeam must belong to a valid Club.")
 
     team = Team(
         name=team_in.name,
         description=team_in.description,
-        club_id=team_in.club_id
+        club_id=club_id
     )
+
     db.add(team)
     db.commit()
     db.refresh(team)

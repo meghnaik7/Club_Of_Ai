@@ -436,12 +436,15 @@ class EventService:
         dependencies, priority, and suggested volunteer skills.
         """
         # 1. Surface historical memory lessons
-        from app.services.club_memory import check_plan_against_club_memory
-        lessons_response = check_plan_against_club_memory(db, event_brief)
-        applied_lessons = []
-        for r in lessons_response.recommendations:
-            source_file = r.citations[0].filename if r.citations else "Club Memory"
-            applied_lessons.append(f"[{r.risk_level}] {r.recommendation} (Source: {source_file})")
+        try:
+            from ai.rag.club_memory import check_plan_against_club_memory
+            lessons_response = check_plan_against_club_memory(db, event_brief)
+            applied_lessons = []
+            for r in getattr(lessons_response, "recommendations", []):
+                source_file = r.citations[0].filename if r.citations else "Club Memory"
+                applied_lessons.append(f"[{r.risk_level}] {r.recommendation} (Source: {source_file})")
+        except Exception:
+            applied_lessons = []
 
         # 2. Plan Structure Definition
         resolved_title = event_title or "Club Event Operations Plan"

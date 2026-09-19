@@ -1,5 +1,8 @@
 from typing import TypedDict, Annotated, Sequence, Optional, List, Dict, Any
-from langchain_core.messages import BaseMessage
+try:
+    from langchain_core.messages import BaseMessage
+except ImportError:
+    from ai.tools.compat import BaseMessage
 from operator import add
 from pydantic import BaseModel, Field
 

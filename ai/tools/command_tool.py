@@ -1,7 +1,10 @@
 import re
 import logging
 from typing import Optional, Dict, Any, List
-from langchain_core.tools import tool
+try:
+    from langchain_core.tools import tool
+except ImportError:
+    from ai.tools.compat import tool
 
 try:
     from app.db.session import SessionLocal
@@ -324,8 +327,10 @@ def execute_command(
     user_id: Optional[int] = None,
     confirm_proposal_id: Optional[int] = None,
     auto_confirm: bool = False,
-    thread_id: Optional[str] = None
+    thread_id: Optional[str] = None,
+    club_id: Optional[int] = None
 ) -> Dict[str, Any]:
+
     """
     Interpret a user's natural-language command and determine which tools/actions are required.
     Supports context queries, volunteer/task search, proposal creation with diff preview,
@@ -451,15 +456,18 @@ def execute_command(
                 user_id=user_id or 1,
                 command=cmd_trimmed,
                 active_event_id=active_event_id,
-                thread_id=thread_id
+                thread_id=thread_id,
+                club_id=club_id
             )
             return {
                 "status": "COMPLETED",
                 "type": "AGENT_RESPONSE",
                 "result": agent_result,
                 "message": agent_result.get("response", "Command processed."),
-                "thread_id": agent_result.get("thread_id")
+                "thread_id": agent_result.get("thread_id"),
+                "active_event_name": agent_result.get("active_event_name")
             }
+
         except Exception as e:
             logger.warning(f"Agent execution error: {e}")
             return {

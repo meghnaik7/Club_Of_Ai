@@ -23,4 +23,3 @@ pypdf>=4.1.0
 python-docx>=1.1.0
 numpy>=1.26.0
 google-genai>=0.1.1
-

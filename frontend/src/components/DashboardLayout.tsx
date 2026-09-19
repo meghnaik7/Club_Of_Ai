@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, LayoutDashboard, Calendar, Users, Megaphone, CheckSquare, Sparkles, Menu, X, BookOpen, Briefcase, ShieldCheck, Mic } from 'lucide-react';
+import {
+  LogOut, LayoutDashboard, Calendar, Users, Megaphone,
+  CheckSquare, Sparkles, Menu, X, BookOpen, Briefcase, ShieldCheck, Network, Mic
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AIChatPanel from './AIChatPanel';
 import VoiceAssistant from './voice/VoiceAssistant';
@@ -12,7 +15,7 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children, title, activeEventId }: DashboardLayoutProps) {
-  const { user, logout, isClubLeader, userTeams } = useAuth();
+  const { user, logout, isAdmin, isClubHead, isClubLeader, isSubTeamLead, isVolunteer, userTeams } = useAuth();
   const location = useLocation();
   const [aiOpen, setAiOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
@@ -21,19 +24,23 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
 
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/teams', icon: Briefcase, label: 'Teams' },
-    { to: '/events', icon: Calendar, label: 'Events' },
-    { to: '/volunteers', icon: Users, label: 'Volunteers' },
-    { to: '/tasks', icon: CheckSquare, label: 'Tasks' },
+    ...(isAdmin ? [{ to: '/admin/organization', icon: Network, label: 'Organization' }] : []),
+    ...((isAdmin || isClubHead || isSubTeamLead) ? [{ to: '/teams', icon: Briefcase, label: isSubTeamLead && !isClubHead ? 'My SubTeam' : 'Teams' }] : []),
+    ...((isAdmin || isClubHead) ? [{ to: '/events', icon: Calendar, label: 'Events' }] : []),
+    ...((isAdmin || isClubHead || isSubTeamLead) ? [{ to: '/volunteers', icon: Users, label: isSubTeamLead && !isClubHead ? 'Team Volunteers' : 'Volunteers' }] : []),
+    { to: '/tasks', icon: CheckSquare, label: isVolunteer ? 'My Tasks' : 'Tasks' },
     { to: '/announcements', icon: Megaphone, label: 'Announcements' },
     { to: '/documents', icon: BookOpen, label: 'RAG Knowledge' },
-    ...(isClubLeader ? [{ to: '/permissions', icon: ShieldCheck, label: 'Permissions' }] : []),
+    ...((isAdmin || isClubHead || isClubLeader) ? [{ to: '/permissions', icon: ShieldCheck, label: 'Permissions' }] : []),
   ];
 
   const getRoleLabel = () => {
-    if (isClubLeader) return 'Club Leader';
-    const leaderTeam = userTeams.find(t => t.role === 'TEAM_LEADER');
+    if (isAdmin) return 'System Admin';
+    if (isClubHead) return 'Club Head';
+    const leaderTeam = userTeams.find(t => t.role === 'SUBTEAM_LEAD' || t.role === 'TEAM_LEADER');
     if (leaderTeam) return `${leaderTeam.name} Lead`;
+    if (isSubTeamLead) return 'SubTeam Lead';
+    if (isVolunteer) return 'Volunteer';
     if (userTeams.length > 0) return `${userTeams[0].name} Member`;
     return user?.role?.toLowerCase().replace('_', ' ') || 'Member';
   };
@@ -110,11 +117,13 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
                 <p className="text-xs font-semibold text-white truncate">{user?.full_name}</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={`inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded ${
-                    isClubLeader
+                    isAdmin
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : isClubHead
                       ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      : userTeams.some(t => t.role === 'TEAM_LEADER')
+                      : isSubTeamLead
                       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                      : 'bg-slate-700/60 text-slate-300'
+                      : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                   }`}>
                     {getRoleLabel()}
                   </span>
@@ -164,12 +173,21 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
                   </Link>
                 );
               })}
+
               <button
                 onClick={() => { setMobileMenuOpen(false); setAiOpen(true); }}
                 className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium bg-violet-600/15 text-violet-300 border border-violet-500/30 mt-4"
               >
                 <Sparkles className="w-4 h-4 text-violet-400" />
                 <span>AI Assistant</span>
+              </button>
+
+              <button
+                onClick={() => { setMobileMenuOpen(false); setVoiceOpen(true); }}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium bg-rose-600/15 text-rose-300 border border-rose-500/30 mt-2"
+              >
+                <Mic className="w-4 h-4 text-rose-400" />
+                <span>Voice AI (Multilingual)</span>
               </button>
             </nav>
 
@@ -182,11 +200,13 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
                   <p className="text-xs font-medium text-white truncate">{user?.full_name}</p>
                   <div className="flex items-center gap-1 mt-0.5">
                     <span className={`inline-block px-1.5 py-0.5 text-[9px] font-semibold rounded ${
-                      isClubLeader
+                      isAdmin
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        : isClubHead
                         ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        : userTeams.some(t => t.role === 'TEAM_LEADER')
+                        : isSubTeamLead
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : 'bg-slate-700/60 text-slate-300'
+                        : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                     }`}>
                       {getRoleLabel()}
                     </span>
@@ -264,4 +284,3 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
     </div>
   );
 }
-

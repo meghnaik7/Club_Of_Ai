@@ -121,7 +121,7 @@ export default function AnnouncementForm() {
 
   return (
     <DashboardLayout title={isEdit ? 'Edit Announcement' : 'New Announcement'}>
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8">
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-xl px-4 py-3">
             {error}
@@ -129,23 +129,23 @@ export default function AnnouncementForm() {
         )}
 
         {/* AI Generate Panel */}
-        <div className="bg-slate-900 border border-violet-500/20 rounded-2xl p-6">
+        <div className="bg-slate-900 border border-violet-500/25 rounded-2xl p-5 sm:p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-violet-600/20 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-violet-400" />
             </div>
             <div>
               <h3 className="text-white font-semibold text-sm">AI Generate</h3>
-              <p className="text-slate-500 text-xs">Auto-fill title and content from event info</p>
+              <p className="text-slate-400 text-xs">Auto-fill title and content from event information</p>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Event</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">Event</label>
               <div className="relative">
                 <select
                   id="generate-event-select"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-violet-500 appearance-none"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-violet-500 appearance-none"
                   value={eventId}
                   onChange={e => setEventId(e.target.value ? Number(e.target.value) : '')}
                 >
@@ -156,10 +156,10 @@ export default function AnnouncementForm() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Tone</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">Tone</label>
               <div className="relative">
                 <select
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-violet-500 appearance-none capitalize"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-violet-500 appearance-none capitalize"
                   value={tone}
                   onChange={e => setTone(e.target.value)}
                 >
@@ -170,11 +170,11 @@ export default function AnnouncementForm() {
             </div>
           </div>
           <div className="mb-4">
-            <label className="block text-xs font-medium text-slate-400 mb-1">Key highlights (one per line, optional)</label>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Key highlights (one per line, optional)</label>
             <textarea
               rows={2}
               placeholder="Free food&#10;Live music&#10;Prizes"
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-violet-500 resize-none"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-violet-500 resize-none placeholder-slate-500"
               value={highlights}
               onChange={e => setHighlights(e.target.value)}
             />
@@ -184,7 +184,7 @@ export default function AnnouncementForm() {
             type="button"
             onClick={handleGenerate}
             disabled={generating}
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-md shadow-violet-600/20"
           >
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {generating ? 'Generating…' : 'Generate Content'}
@@ -192,16 +192,16 @@ export default function AnnouncementForm() {
         </div>
 
         {/* Form */}
-        <form id="announcement-form" onSubmit={handleSubmit} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-          <h3 className="text-white font-semibold mb-2">Announcement Details</h3>
+        <form id="announcement-form" onSubmit={handleSubmit} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4 sm:space-y-5 shadow-sm">
+          <h3 className="text-white font-semibold text-base sm:text-lg">Announcement Details</h3>
 
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Title *</label>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Title *</label>
             <input
               id="announcement-title"
               required
               type="text"
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors placeholder-slate-500"
               placeholder="Announcement title"
               value={title}
               onChange={e => setTitle(e.target.value)}
@@ -209,12 +209,12 @@ export default function AnnouncementForm() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Content *</label>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Content *</label>
             <textarea
               id="announcement-content"
               required
               rows={6}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors resize-none"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors resize-none placeholder-slate-500 leading-relaxed"
               placeholder="Write the announcement content here…"
               value={content}
               onChange={e => setContent(e.target.value)}
@@ -223,10 +223,10 @@ export default function AnnouncementForm() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Target Audience</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">Target Audience</label>
               <input
                 type="text"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"
                 placeholder="e.g. All Students, Club Members"
                 value={targetAudience}
                 onChange={e => setTargetAudience(e.target.value)}
@@ -234,10 +234,10 @@ export default function AnnouncementForm() {
             </div>
             {isEdit && (
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Status</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">Status</label>
                 <div className="relative">
                   <select
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 appearance-none"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 appearance-none"
                     value={status}
                     onChange={e => setStatus(e.target.value)}
                   >
@@ -256,7 +256,7 @@ export default function AnnouncementForm() {
               type="submit"
               disabled={submitting}
               id="save-announcement-btn"
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-md shadow-indigo-600/20"
             >
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               {isEdit ? 'Save Changes' : 'Create Announcement'}
@@ -264,7 +264,7 @@ export default function AnnouncementForm() {
             <button
               type="button"
               onClick={() => navigate('/announcements')}
-              className="text-slate-400 hover:text-white text-sm px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors"
+              className="text-slate-400 hover:text-white text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-slate-800 transition-colors"
             >
               Cancel
             </button>
@@ -272,7 +272,7 @@ export default function AnnouncementForm() {
         </form>
 
         {/* Variants Panel */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-white font-semibold text-sm">Platform Variants</h3>

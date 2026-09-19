@@ -14,9 +14,10 @@ import VolunteerProfile from './pages/VolunteerProfile';
 import AnnouncementList from './pages/AnnouncementList';
 import AnnouncementForm from './pages/AnnouncementForm';
 import TaskList from './pages/TaskList';
-import DocumentList from './pages/DocumentList';
 import TeamManagement from './pages/TeamManagement';
 import PermissionManagement from './pages/PermissionManagement';
+import AdminOrganization from './pages/AdminOrganization';
+import DocumentList from './pages/DocumentList';
 import './App.css';
 
 function App() {
@@ -30,6 +31,9 @@ function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
+
+            {/* Admin Organization & Hierarchy */}
+            <Route path="/admin/organization" element={<AdminOrganization />} />
 
             {/* Teams */}
             <Route path="/teams" element={<TeamManagement />} />

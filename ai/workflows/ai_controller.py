@@ -1,7 +1,11 @@
 from typing import Optional
-from langchain_core.messages import HumanMessage
+try:
+    from langchain_core.messages import HumanMessage
+except ImportError:
+    from ai.tools.compat import HumanMessage
 from ai.agents.graph import compiled_graph, get_thread_config
 from ai.observability import traceable
+
 
 @traceable(name="run_ai_command", run_type="chain")
 def run_ai_command(
@@ -38,13 +42,12 @@ def run_ai_command(
         "thread_id": effective_thread_id,
         "retrieved_memories": []
     }
-    
-    # Run the graph with checkpointer configuration
+
+    # Run the graph with checkpointer and observability config
     result = compiled_graph.invoke(initial_state, config=config)
-    
     messages = result.get("messages", [])
     response_text = "No response generated."
-    
+
     if messages:
         last_message = messages[-1]
         response_text = last_message.content
@@ -67,7 +70,7 @@ def run_ai_command(
             db.close()
     except Exception:
         pass
-        
+
     return {
         "response": response_text,
         "proposals": result.get("proposal_ids", []),

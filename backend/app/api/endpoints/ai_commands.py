@@ -76,7 +76,7 @@ def clear_chat_history(
 def execute_ai_command(
     request: AICommandRequest,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: Optional[User] = Depends(deps.get_current_user_optional),
 ) -> Any:
     """
     Execute a natural language command via the AI Agent.
@@ -85,10 +85,11 @@ def execute_ai_command(
     """
     try:
         from ai.tools.command_tool import execute_command
+        user_id = current_user.id if current_user else 1
         result = execute_command.invoke({
             "command": request.command,
             "active_event_id": request.active_event_id,
-            "user_id": current_user.id,
+            "user_id": user_id,
             "confirm_proposal_id": request.confirm_proposal_id,
             "auto_confirm": request.auto_confirm or False,
             "thread_id": request.thread_id
@@ -109,7 +110,7 @@ def execute_ai_command(
         if hasattr(db, "add") and hasattr(db, "commit"):
             try:
                 history_entry = RAGChatHistory(
-                    user_id=current_user.id,
+                    user_id=current_user.id if current_user else None,
                     event_id=request.active_event_id,
                     question=request.command,
                     answer=answer_text,
@@ -139,7 +140,7 @@ def execute_ai_command(
 
 @router.get("/checkpointer-status")
 def get_checkpointer_status() -> Dict[str, Any]:
-    """Returns runtime diagnostics of the LangGraph state checkpointer for cloud deployments."""
+    # Returns runtime diagnostics of the LangGraph state checkpointer for cloud deployments.
     from ai.agents.checkpointer import checkpointer_manager
     return checkpointer_manager.get_status()
 

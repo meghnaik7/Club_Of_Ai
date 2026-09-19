@@ -31,7 +31,10 @@ from ai.agents.graph import (
     compiled_graph, memory_checkpointer, get_thread_config,
     trim_messages_for_short_term_memory, resolve_context_references
 )
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+try:
+    from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+except ImportError:
+    from ai.tools.compat import HumanMessage, AIMessage, SystemMessage
 
 class TestMemorySystem(unittest.TestCase):
     @classmethod

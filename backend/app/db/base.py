@@ -6,6 +6,8 @@ from app.models.task import Task, TaskAssignment
 from app.models.audit_log import AuditLog
 from app.models.document import Document, DocumentChunk
 from app.models.announcement import Announcement
+from app.models.team import Club, Team, TeamMembership, ClubMembership, EventMembership
+from app.models.permission import Permission, RolePermission, UserPermission
 
 try:
     from app.models.event import Expense, EventBudgetCategory
@@ -51,10 +53,3 @@ try:
     from app.models.escalation import TaskEscalation
 except ImportError:
     pass
-
-try:
-    from app.models.team import Club, Team, TeamMembership, ClubMembership, EventMembership
-    from app.models.permission import Permission, RolePermission, UserPermission
-except ImportError:
-    pass
-

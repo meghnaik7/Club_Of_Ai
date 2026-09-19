@@ -68,6 +68,37 @@ def create_proposal(
     Persist an AIProposal and its AIProposalChanges.
     Does NOT touch production entity tables (Event, Task, etc.).
     """
+    # Validate user authorization scope if user_id is provided
+    if user_id:
+        from app.models.user import User
+        from app.services.authz import AuthorizationService
+        actor = db.query(User).filter(User.id == user_id).first()
+        if actor and not AuthorizationService.is_admin(actor):
+            role_str = AuthorizationService.get_role_str(actor)
+            if role_str in ["VOLUNTEER", "TEAM_MEMBER"] and not AuthorizationService.is_club_head(db, actor):
+                if event_plan or (changes and any(c.get("action") in ["CREATE", "DELETE", "ASSIGN"] for c in changes)):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Permission denied: Volunteers are not authorized to create event plans or assign tasks via AI."
+                    )
+            if AuthorizationService.is_subteam_lead(db, actor):
+                user_subteam = AuthorizationService.get_user_subteam_id(db, actor)
+                if changes:
+                    for c in changes:
+                        target_task_id = c.get("entity_id")
+                        if target_task_id and c.get("entity_type") == "Task":
+                            if not AuthorizationService.can_manage_task(db, actor, target_task_id):
+                                raise HTTPException(
+                                    status_code=403,
+                                    detail=f"Permission denied: SubTeam Lead cannot modify Task #{target_task_id} outside their SubTeam scope."
+                                )
+                        target_team_id = (c.get("proposed_data") or {}).get("team_id")
+                        if target_team_id and user_subteam and target_team_id != user_subteam:
+                            raise HTTPException(
+                                status_code=403,
+                                detail=f"Permission denied: SubTeam Lead cannot move tasks to Team #{target_team_id}. Please escalate to Club Head."
+                            )
+
     proposal = AIProposal(
         intent=intent,
         status=ProposalStatus.PENDING,
@@ -75,6 +106,7 @@ def create_proposal(
     )
     db.add(proposal)
     db.flush()  # Get proposal.id
+
 
     # 1. Staging changes from EventPlan (if provided)
     if event_plan:
@@ -235,13 +267,18 @@ def apply_proposal(db: Session, proposal_id: int, user_id: Optional[int] = None)
     proposal = db.query(AIProposal).filter(AIProposal.id == proposal_id).first()
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
-    if proposal.status != ProposalStatus.PENDING:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Proposal is not PENDING (current status: {proposal.status.value if hasattr(proposal.status, 'value') else proposal.status})"
-        )
+    if user_id:
+        from app.models.user import User
+        from app.services.authz import AuthorizationService
+        actor = db.query(User).filter(User.id == user_id).first()
+        if actor and not AuthorizationService.can_apply_ai_proposal(db, actor, proposal_id):
+            raise HTTPException(
+                status_code=403,
+                detail="Permission denied: You are not authorized to apply this proposal due to organizational scope restrictions."
+            )
 
     created_event_id = None
+
 
     try:
         for change in proposal.changes:
@@ -320,6 +357,27 @@ def apply_proposal(db: Session, proposal_id: int, user_id: Optional[int] = None)
                 elif action_upper == "UPDATE" and change.entity_id:
                     task = db.query(TaskModel).filter(TaskModel.id == change.entity_id).first()
                     if task:
+                        # Re-verify authorization right before applying to database
+                        if user_id:
+                            try:
+                                from app.services.authz import AuthorizationService
+                                from app.models.user import User
+                            except ImportError:
+                                from backend.app.services.authz import AuthorizationService
+                                from backend.app.models.user import User
+                            user_obj = db.query(User).filter(User.id == user_id).first()
+                            if user_obj:
+                                if "volunteer_id" in data:
+                                    AuthorizationService.require_permission(
+                                        db, user_obj, "task.assign", resource=task,
+                                        detail=f"User #{user_id} lacks permission to assign task #{task.id}"
+                                    )
+                                else:
+                                    AuthorizationService.require_permission(
+                                        db, user_obj, "task.update", resource=task,
+                                        detail=f"User #{user_id} lacks permission to update task #{task.id}"
+                                    )
+
                         prev_state = {"id": task.id, "title": task.title, "status": str(task.status)}
                         if "status" in data:
                             task.status = data["status"]

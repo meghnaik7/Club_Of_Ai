@@ -39,21 +39,33 @@ def list_tasks(
     if phase is not None:
         q = q.filter(Task.phase == phase)
 
-    # Scoping for non-club leaders
-    if not AuthorizationService.is_club_leader(db, current_user):
-        user_teams = list(AuthorizationService.get_user_team_roles(db, current_user).keys())
-        user_events = list(AuthorizationService.get_user_event_roles(db, current_user).keys())
-        volunteer_id = current_user.volunteer_profile.id if current_user.volunteer_profile else None
+    # Scoping for non-admin users
+    if not AuthorizationService.is_admin(current_user):
+        user_club = AuthorizationService.get_user_club_id(db, current_user)
+        if AuthorizationService.is_club_head(db, current_user, club_id=user_club):
+            from app.models.event import Event
+            from app.models.team import Team
+            q = q.filter(
+                or_(
+                    Task.event.has(Event.club_id == user_club),
+                    Task.team.has(Team.club_id == user_club),
+                    Task.created_by == current_user.id
+                )
+            )
+        else:
+            user_teams = list(AuthorizationService.get_user_team_roles(db, current_user).keys())
+            user_events = list(AuthorizationService.get_user_event_roles(db, current_user).keys())
+            volunteer_id = current_user.volunteer_profile.id if current_user.volunteer_profile else None
 
-        conditions = [Task.created_by == current_user.id]
-        if user_teams:
-            conditions.append(Task.team_id.in_(user_teams))
-        if user_events:
-            conditions.append(Task.event_id.in_(user_events))
-        if volunteer_id:
-            conditions.append(Task.assignments.any(TaskAssignment.volunteer_id == volunteer_id))
+            conditions = [Task.created_by == current_user.id]
+            if user_teams:
+                conditions.append(Task.team_id.in_(user_teams))
+            if user_events:
+                conditions.append(Task.event_id.in_(user_events))
+            if volunteer_id:
+                conditions.append(Task.assignments.any(TaskAssignment.volunteer_id == volunteer_id))
 
-        q = q.filter(or_(*conditions))
+            q = q.filter(or_(*conditions))
 
     return q.offset(skip).limit(limit).all()
 
@@ -234,21 +246,11 @@ def assign_volunteer(
     if not volunteer:
         raise HTTPException(status_code=404, detail="Volunteer not found")
 
-    # Team boundary check: Team Leader can only assign within their team
-    is_leader = AuthorizationService.is_club_leader(db, current_user)
-    event_roles = AuthorizationService.get_user_event_roles(db, current_user)
-    is_event_coord = task.event_id in event_roles
-
-    if not is_leader and not is_event_coord and task.team_id:
-        is_member = db.query(TeamMembership).filter(
-            TeamMembership.team_id == task.team_id,
-            TeamMembership.user_id == volunteer.user_id
-        ).first()
-        if not is_member:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot assign task: Volunteer is not in this team"
-            )
+    if not AuthorizationService.can_assign_task(db, current_user, task_id, volunteer_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied: Cannot assign this volunteer to this task."
+        )
 
     # Avoid duplicate assignment
     existing = db.query(TaskAssignment).filter(

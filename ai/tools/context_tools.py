@@ -1,5 +1,8 @@
 from typing import Optional, List, Dict, Any
-from langchain_core.tools import tool
+try:
+    from langchain_core.tools import tool
+except ImportError:
+    from ai.tools.compat import tool
 
 try:
     from app.db.session import SessionLocal
