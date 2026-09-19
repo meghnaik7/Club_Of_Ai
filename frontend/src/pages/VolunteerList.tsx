@@ -12,11 +12,11 @@ interface UserInfo {
 
 interface Volunteer {
   id: number;
-  user_id: int;
+  user_id: number;
   skills: string;
   availability: string;
   status: string;
-  active_task_count: int;
+  active_task_count: number;
   load_indicator: string;
   user: UserInfo;
 }

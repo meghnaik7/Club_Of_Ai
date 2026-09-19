@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     
     VOLUNTEER_LOAD_LOW: int = 3
     VOLUNTEER_LOAD_MEDIUM: int = 6
+
+    # AI / LLM settings
+    LLM_PROVIDER: str = "openai"
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    
+    UPLOAD_DIR: str = "uploads/documents"
     
     @property
     def DATABASE_URL(self) -> str:
@@ -21,5 +28,6 @@ class Settings(BaseSettings):
         
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 settings = Settings()
