@@ -1,6 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Bot, Play, Pause, RotateCcw, CheckCircle, XCircle, Volume2, Sparkles, FileText } from 'lucide-react';
-import VoiceWaveform from './VoiceWaveform';
 
 interface VoiceResponseProps {
   responseText: string;

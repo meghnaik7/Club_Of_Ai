@@ -1,4 +1,3 @@
-import React from 'react';
 
 interface VoiceWaveformProps {
   state: 'idle' | 'recording' | 'processing' | 'playing';

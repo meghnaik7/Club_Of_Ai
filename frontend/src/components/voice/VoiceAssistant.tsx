@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Mic, Volume2, AlertCircle, Sparkles, RefreshCw } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { X, Mic, AlertCircle, Sparkles } from 'lucide-react';
 import LanguageSelector from './LanguageSelector';
 import VoiceButton from './VoiceButton';
 import VoiceWaveform from './VoiceWaveform';
@@ -216,7 +216,7 @@ export default function VoiceAssistant({
     setStatusState('processing');
     try {
       const AIService = (await import('../../services/ai.service')).default;
-      const res = await AIService.rejectProposal(proposalId, activeEventId);
+      await AIService.rejectProposal(proposalId, activeEventId);
       setLastTurn((prev) =>
         prev
           ? {

@@ -1,5 +1,4 @@
-import React from 'react';
-import { User, Volume2, Sparkles } from 'lucide-react';
+import { User, Sparkles } from 'lucide-react';
 import { LANGUAGE_OPTIONS } from './LanguageSelector';
 
 interface VoiceTranscriptProps {
