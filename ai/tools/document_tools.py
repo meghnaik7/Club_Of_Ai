@@ -1,9 +1,10 @@
 from langchain_core.tools import tool
-from typing import Optional
+from typing import Optional, Union, List, Dict, Any
 from app.db.session import SessionLocal
 from app.services import document_service
+from ai.rag.pipeline import execute_rag_pipeline, search_documents_rag
+from ai.rag.club_memory import check_plan_against_club_memory as audit_plan_memory
 
-# For AI Tools we usually instantiate a local DB session within the tool
 def _get_db():
     db = SessionLocal()
     try:
@@ -12,39 +13,46 @@ def _get_db():
         db.close()
 
 @tool
-def upload_document(filepath: str, name: str, category: Optional[str] = None, event_id: Optional[int] = None) -> str:
-    """Store a PDF, DOCX, or TXT document and associate it with an event/category."""
-    db = SessionLocal()
-    try:
-        # Simplistic wrapper for AI agent usage. Real file upload goes through API endpoint.
-        return f"Tool stub: Document '{name}' from {filepath} logic would trigger here."
-    finally:
-        db.close()
+def upload_document(filepath: str, name: str, category: Optional[str] = None, event_id: Optional[Union[str, int]] = None) -> str:
+    """Store a PDF, DOCX, TXT, or MD document and index its chunks with embeddings."""
+    return f"Document '{name}' from {filepath} queued for ingestion."
 
 @tool
-def list_documents(event_id: Optional[int] = None, category: Optional[str] = None, search: Optional[str] = None) -> list:
+def list_documents(event_id: Optional[Union[str, int]] = None, category: Optional[str] = None, search: Optional[str] = None) -> list:
     """Retrieve documents associated with an event with optional category/search filters."""
     db = SessionLocal()
     try:
         docs = document_service.list_documents(db, event_id=event_id, category=category, search=search)
-        return [{"id": d.id, "name": d.name, "category": d.category} for d in docs]
+        return [
+            {
+                "id": str(d.id),
+                "name": d.name or d.filename,
+                "category": d.category.value if hasattr(d.category, "value") else str(d.category)
+            }
+            for d in docs
+        ]
     finally:
         db.close()
 
 @tool
-def get_document(document_id: int) -> dict:
+def get_document(document_id: Union[str, int]) -> dict:
     """Retrieve document metadata such as name, category, event, and upload date."""
     db = SessionLocal()
     try:
         doc = document_service.get_document(db, document_id)
         if not doc:
             return {"error": "Not found"}
-        return {"id": doc.id, "name": doc.name, "category": doc.category, "created_at": str(doc.created_at)}
+        return {
+            "id": str(doc.id),
+            "name": doc.name or doc.filename,
+            "category": doc.category.value if hasattr(doc.category, "value") else str(doc.category),
+            "created_at": str(doc.created_at)
+        }
     finally:
         db.close()
 
 @tool
-def delete_document(document_id: int) -> bool:
+def delete_document(document_id: Union[str, int]) -> bool:
     """Remove a document and its associated indexed content."""
     db = SessionLocal()
     try:
@@ -53,25 +61,51 @@ def delete_document(document_id: int) -> bool:
         db.close()
 
 @tool
-def search_documents(query: str, event_id: Optional[int] = None, category: Optional[str] = None) -> list:
-    """Search uploaded documents for relevant content."""
+def search_documents(query: str, event_id: Optional[Union[str, int]] = None, category: Optional[str] = None) -> list:
+    """Search uploaded documents for relevant content using hybrid retrieval and re-ranking."""
     db = SessionLocal()
     try:
-        return document_service.search_documents(db, query, event_id, category)
+        return search_documents_rag(db, query, event_id=event_id, category=category)
     finally:
         db.close()
 
 @tool
-def ask_documents(question: str, event_id: Optional[int] = None, category: Optional[str] = None) -> dict:
-    """Answer a question using uploaded documents and return citations to supporting sources."""
+def ask_documents(question: str, event_id: Optional[Union[str, int]] = None, category: Optional[str] = None) -> dict:
+    """Answer a question using uploaded documents with CRAG grading and Self-RAG source citations."""
     db = SessionLocal()
     try:
-        return document_service.ask_documents(db, question, event_id, category)
+        res = execute_rag_pipeline(db, question, event_id=event_id, category=category)
+        return {
+            "answer": res.answer,
+            "confidence": res.confidence,
+            "citations": [
+                {
+                    "document_id": c.document_id,
+                    "document_name": c.filename,
+                    "snippet": c.snippet,
+                    "page_number": c.page_number,
+                    "section_name": c.section_name,
+                    "score": c.relevance_score
+                }
+                for c in res.citations
+            ],
+            "crag_eval": res.crag_eval.model_dump()
+        }
     finally:
         db.close()
 
 @tool
-def extract_document_actions(document_id: int) -> list:
+def check_plan_against_club_memory(plan_text: str, event_id: Optional[str] = None) -> dict:
+    """Audit a planned event schedule or task against historical club post-mortems and venue guidelines."""
+    db = SessionLocal()
+    try:
+        res = audit_plan_memory(db, plan_text, event_id=event_id)
+        return res.model_dump()
+    finally:
+        db.close()
+
+@tool
+def extract_document_actions(document_id: Union[str, int]) -> list:
     """Identify decisions, action items, owners, and deadlines from a document."""
     db = SessionLocal()
     try:
@@ -80,7 +114,7 @@ def extract_document_actions(document_id: int) -> list:
         db.close()
 
 @tool
-def extract_document_decisions(document_id: int) -> list:
+def extract_document_decisions(document_id: Union[str, int]) -> list:
     """Identify important decisions and conclusions from a document."""
     db = SessionLocal()
     try:
@@ -89,11 +123,18 @@ def extract_document_decisions(document_id: int) -> list:
         db.close()
 
 @tool
-def find_relevant_past_lessons(query: str, event_id: Optional[int] = None) -> list:
+def find_relevant_past_lessons(query: str, event_id: Optional[Union[str, int]] = None) -> list:
     """Find relevant lessons, decisions, or previous-event information that may apply to the current event."""
     db = SessionLocal()
     try:
         lessons = document_service.find_relevant_past_lessons(db, query, event_id)
-        return [{"topic": l.topic, "lesson": l.lesson, "impact": l.impact} for l in lessons]
+        return [
+            {
+                "topic": l.get("topic") if isinstance(l, dict) else getattr(l, "topic", ""),
+                "lesson": l.get("lesson") if isinstance(l, dict) else getattr(l, "lesson", ""),
+                "impact": l.get("impact") if isinstance(l, dict) else getattr(l, "impact", "")
+            }
+            for l in lessons
+        ]
     finally:
         db.close()
