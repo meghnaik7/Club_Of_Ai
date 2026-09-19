@@ -16,6 +16,7 @@ import AnnouncementForm from './pages/AnnouncementForm';
 import TaskList from './pages/TaskList';
 import TeamManagement from './pages/TeamManagement';
 import PermissionManagement from './pages/PermissionManagement';
+import AdminOrganization from './pages/AdminOrganization';
 import './App.css';
 
 function App() {
@@ -29,6 +30,9 @@ function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
+
+            {/* Admin Organization & Hierarchy */}
+            <Route path="/admin/organization" element={<AdminOrganization />} />
 
             {/* Teams */}
             <Route path="/teams" element={<TeamManagement />} />

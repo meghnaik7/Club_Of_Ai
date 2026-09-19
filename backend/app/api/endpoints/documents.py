@@ -22,8 +22,12 @@ def upload_document(
     event_id: Optional[str] = Form(None),
     uploader: Optional[str] = Form("Club Lead"),
     db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """Upload a new document (PDF, DOCX, TXT, MD) and chunk it with embeddings."""
+    from app.services.authz import AuthorizationService
+    AuthorizationService.require_permission(db, current_user, "document.upload")
+
     filename = file.filename or "uploaded_file"
     ext = filename.split(".")[-1].lower() if "." in filename else ""
     if ext not in ALLOWED_EXTENSIONS:
@@ -43,7 +47,7 @@ def upload_document(
         name=doc_name,
         category=category,
         event_id=event_id,
-        user_id=None
+        user_id=current_user.id
     )
 
     return {
@@ -111,7 +115,11 @@ def get_document(
 def delete_document(
     document_id: str,
     db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
 ) -> Any:
+    from app.services.authz import AuthorizationService
+    AuthorizationService.require_permission(db, current_user, "document.delete")
+
     success = document_service.delete_document(db, document_id)
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")

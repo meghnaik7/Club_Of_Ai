@@ -42,7 +42,13 @@ class UserAuthzSummary(BaseModel):
     user_id: int
     full_name: str
     email: str
-    is_club_leader: bool
+    role: str
+    is_admin: bool = False
+    is_club_leader: bool = False
+    is_club_head: bool = False
+    is_subteam_lead: bool = False
+    club_id: Optional[int] = None
+    subteam_id: Optional[int] = None
     club_role: Optional[str] = None
     teams: List[UserTeamSummary] = []
     event_roles: List[UserEventSummary] = []

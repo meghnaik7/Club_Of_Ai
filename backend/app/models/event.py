@@ -26,9 +26,11 @@ class Event(Base):
     expected_attendance = Column(Integer, default=0)
     status = Column(Enum(EventStatus), default=EventStatus.DRAFT, nullable=False)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    club = relationship("Club", foreign_keys=[club_id])
     creator = relationship("User", backref="created_events")
     tasks = relationship("Task", backref="event", cascade="all, delete-orphan")
     expenses = relationship("Expense", back_populates="event", cascade="all, delete-orphan")

@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, Enum
+from sqlalchemy import Boolean, Column, Integer, String, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 import enum
 
@@ -6,8 +6,13 @@ from app.db.base_class import Base
 
 class UserRole(str, enum.Enum):
     ADMIN = "ADMIN"
-    CLUB_MANAGER = "CLUB_MANAGER"
+    CLUB_HEAD = "CLUB_HEAD"
+    CLUB_MANAGER = "CLUB_MANAGER"  # Distinct value for legacy rows
+    SUBTEAM_LEAD = "SUBTEAM_LEAD"
+    TEAM_LEADER = "TEAM_LEADER"    # Distinct value for legacy rows
     VOLUNTEER = "VOLUNTEER"
+    TEAM_MEMBER = "TEAM_MEMBER"    # Distinct value for legacy rows
+
 
 class User(Base):
     __tablename__ = "users"
@@ -19,4 +24,10 @@ class User(Base):
     role = Column(Enum(UserRole), default=UserRole.VOLUNTEER, nullable=False)
     is_active = Column(Boolean, default=True)
 
+    # Direct organizational assignment
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="SET NULL"), nullable=True, index=True)
+    subteam_id = Column(Integer, ForeignKey("teams.id", ondelete="SET NULL"), nullable=True, index=True)
+
     volunteer_profile = relationship("Volunteer", back_populates="user", uselist=False)
+    club = relationship("Club", foreign_keys=[club_id])
+    subteam = relationship("Team", foreign_keys=[subteam_id])

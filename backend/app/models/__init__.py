@@ -6,8 +6,10 @@ from app.models.document import Document, DocumentChunk, DocumentCategory
 from app.models.meeting import Meeting, MeetingActionItem
 from app.models.risk import EventRisk
 from app.models.audit_log import AuditLog
-from app.models.team import Club, Team, TeamMembership, ClubMembership, EventMembership, TeamRole, ClubRole, EventRole
+from app.models.team import Club, Team, SubTeam, TeamMembership, SubTeamMembership, ClubMembership, EventMembership, TeamRole, ClubRole, EventRole
 from app.models.permission import Permission, RolePermission, UserPermission, ScopeType, PermissionEffect
+from app.models.chat_history import RAGChatHistory
+from app.memory.models import Memory
 
 __all__ = [
     "User",
@@ -32,8 +34,11 @@ __all__ = [
     "AuditLog",
     "Club",
     "Team",
+    "SubTeam",
     "TeamMembership",
+    "SubTeamMembership",
     "ClubMembership",
+
     "EventMembership",
     "TeamRole",
     "ClubRole",
@@ -42,5 +47,8 @@ __all__ = [
     "RolePermission",
     "UserPermission",
     "ScopeType",
-    "PermissionEffect"
+    "PermissionEffect",
+    "RAGChatHistory",
+    "Memory",
 ]
+

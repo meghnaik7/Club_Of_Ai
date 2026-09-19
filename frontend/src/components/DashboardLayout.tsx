@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, LayoutDashboard, Calendar, Users, Megaphone, CheckSquare, Sparkles, Menu, X, Briefcase, ShieldCheck } from 'lucide-react';
+import { LogOut, LayoutDashboard, Calendar, Users, Megaphone, CheckSquare, Sparkles, Menu, X, Briefcase, ShieldCheck, Network } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AIChatPanel from './AIChatPanel';
 
@@ -11,25 +11,29 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children, title, activeEventId }: DashboardLayoutProps) {
-  const { user, logout, isClubLeader, userTeams } = useAuth();
+  const { user, logout, isAdmin, isClubHead, isClubLeader, isSubTeamLead, isVolunteer, userTeams } = useAuth();
   const location = useLocation();
   const [aiOpen, setAiOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/teams', icon: Briefcase, label: 'Teams' },
-    { to: '/events', icon: Calendar, label: 'Events' },
-    { to: '/volunteers', icon: Users, label: 'Volunteers' },
-    { to: '/tasks', icon: CheckSquare, label: 'Tasks' },
+    ...(isAdmin ? [{ to: '/admin/organization', icon: Network, label: 'Organization' }] : []),
+    ...((isAdmin || isClubHead || isSubTeamLead) ? [{ to: '/teams', icon: Briefcase, label: isSubTeamLead && !isClubHead ? 'My SubTeam' : 'Teams' }] : []),
+    ...((isAdmin || isClubHead) ? [{ to: '/events', icon: Calendar, label: 'Events' }] : []),
+    ...((isAdmin || isClubHead || isSubTeamLead) ? [{ to: '/volunteers', icon: Users, label: isSubTeamLead && !isClubHead ? 'Team Volunteers' : 'Volunteers' }] : []),
+    { to: '/tasks', icon: CheckSquare, label: isVolunteer ? 'My Tasks' : 'Tasks' },
     { to: '/announcements', icon: Megaphone, label: 'Announcements' },
-    ...(isClubLeader ? [{ to: '/permissions', icon: ShieldCheck, label: 'Permissions' }] : []),
+    ...((isAdmin || isClubHead) ? [{ to: '/permissions', icon: ShieldCheck, label: 'Permissions' }] : []),
   ];
 
   const getRoleLabel = () => {
-    if (isClubLeader) return 'Club Leader';
-    const leaderTeam = userTeams.find(t => t.role === 'TEAM_LEADER');
+    if (isAdmin) return 'System Admin';
+    if (isClubHead) return 'Club Head';
+    const leaderTeam = userTeams.find(t => t.role === 'SUBTEAM_LEAD' || t.role === 'TEAM_LEADER');
     if (leaderTeam) return `${leaderTeam.name} Lead`;
+    if (isSubTeamLead) return 'SubTeam Lead';
+    if (isVolunteer) return 'Volunteer';
     if (userTeams.length > 0) return `${userTeams[0].name} Member`;
     return user?.role?.toLowerCase().replace('_', ' ') || 'Member';
   };
@@ -87,11 +91,13 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
                 <p className="text-sm font-medium text-white truncate">{user?.full_name || 'User'}</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold rounded-md ${
-                    isClubLeader
+                    isAdmin
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : isClubHead
                       ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      : userTeams.some(t => t.role === 'TEAM_LEADER')
+                      : isSubTeamLead
                       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                      : 'bg-slate-700/60 text-slate-300'
+                      : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                   }`}>
                     {getRoleLabel()}
                   </span>
