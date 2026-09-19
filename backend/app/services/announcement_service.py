@@ -7,14 +7,22 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.announcement import Announcement
 from app.models.event import Event
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, HumanMessage
+try:
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import SystemMessage, HumanMessage
+except ImportError:
+    ChatOpenAI = None
+    SystemMessage = None
+    HumanMessage = None
 
 logger = logging.getLogger(__name__)
 
 def get_llm():
-    if getattr(settings, "OPENAI_API_KEY", None):
-        return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=getattr(settings, "OPENAI_MODEL", "gpt-4o-mini"))
+    if ChatOpenAI is not None and getattr(settings, "OPENAI_API_KEY", None):
+        try:
+            return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=getattr(settings, "OPENAI_MODEL", "gpt-4o-mini"))
+        except Exception:
+            return None
     return None
 
 def create_announcement(

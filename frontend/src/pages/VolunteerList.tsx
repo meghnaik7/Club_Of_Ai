@@ -58,41 +58,45 @@ export default function VolunteerList() {
 
   return (
     <DashboardLayout title="Volunteers">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+      <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="relative flex-1 sm:max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
               placeholder="Search by name, email, or skill..."
-              className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-10 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors placeholder-slate-500"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
-            <select 
-              className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500"
-              value={loadFilter}
-              onChange={e => setLoadFilter(e.target.value)}
-            >
-              <option value="ALL">All Loads</option>
-              <option value="LOW">Low Load</option>
-              <option value="MEDIUM">Medium Load</option>
-              <option value="OVERLOADED">Overloaded</option>
-            </select>
-            <select 
-              className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500"
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-            >
-              <option value="ALL">All Status</option>
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
-            </select>
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5">
+            <div className="relative flex-1 sm:flex-initial">
+              <select 
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-3.5 pr-8 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 appearance-none"
+                value={loadFilter}
+                onChange={e => setLoadFilter(e.target.value)}
+              >
+                <option value="ALL">All Loads</option>
+                <option value="LOW">Low Load</option>
+                <option value="MEDIUM">Medium Load</option>
+                <option value="OVERLOADED">Overloaded</option>
+              </select>
+            </div>
+            <div className="relative flex-1 sm:flex-initial">
+              <select 
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-3.5 pr-8 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 appearance-none"
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+              >
+                <option value="ALL">All Status</option>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+            </div>
             <Link
               to="/volunteers/new"
-              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg transition-colors font-medium text-sm shrink-0"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl transition-colors font-semibold text-sm shrink-0 shadow-md shadow-indigo-600/20"
             >
               <Plus className="w-4 h-4" /> Add Volunteer
             </Link>
@@ -104,58 +108,60 @@ export default function VolunteerList() {
             <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-500"></div>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center flex flex-col items-center justify-center">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 sm:p-12 text-center flex flex-col items-center justify-center">
             <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4">
               <Users className="w-8 h-8 text-slate-500" />
             </div>
-            <h3 className="text-lg font-medium text-white mb-2">No volunteers found</h3>
-            <p className="text-slate-400 max-w-sm">
-              Adjust your filters or add a new volunteer to get started.
+            <h3 className="text-lg font-semibold text-white mb-2">No volunteers found</h3>
+            <p className="text-slate-400 text-sm max-w-sm">
+              Adjust your search or filters to see more results, or register a new volunteer.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filtered.map(vol => (
               <Link
                 key={vol.id}
                 to={`/volunteers/${vol.id}`}
-                className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 transition-all hover:shadow-lg hover:shadow-slate-950/50 group block"
+                className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 sm:p-6 transition-all hover:shadow-xl hover:shadow-slate-950/60 group flex flex-col justify-between h-full space-y-4"
               >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-300 font-medium">
-                      {vol.user?.full_name?.charAt(0) || 'U'}
+                <div>
+                  <div className="flex justify-between items-start mb-3.5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-200 font-semibold text-sm shadow-inner">
+                        {vol.user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-sm sm:text-base font-semibold text-white group-hover:text-indigo-400 transition-colors truncate">
+                          {vol.user?.full_name}
+                        </h3>
+                        <p className="text-xs text-slate-400 truncate">{vol.user?.email}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-white font-medium group-hover:text-indigo-400 transition-colors">
-                        {vol.user?.full_name}
-                      </h3>
-                      <p className="text-xs text-slate-500">{vol.user?.email}</p>
-                    </div>
+                    {vol.status === 'ACTIVE' ? (
+                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-slate-600 shrink-0" />
+                    )}
                   </div>
-                  {vol.status === 'ACTIVE' ? (
-                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                  ) : (
-                    <XCircle className="w-4 h-4 text-slate-600" />
-                  )}
+
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {vol.skills ? vol.skills.split(',').map((skill, i) => (
+                      <span key={i} className="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800/90 text-slate-300 font-medium border border-slate-700/50">
+                        {skill.trim()}
+                      </span>
+                    )) : (
+                      <span className="text-xs text-slate-500 italic">No skills listed</span>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {vol.skills ? vol.skills.split(',').map((skill, i) => (
-                    <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
-                      {skill.trim()}
-                    </span>
-                  )) : (
-                    <span className="text-xs text-slate-600 italic">No skills listed</span>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-slate-800/50">
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                    <Activity className="w-3.5 h-3.5" />
+                <div className="flex items-center justify-between pt-3.5 border-t border-slate-800/60 mt-auto">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                    <Activity className="w-3.5 h-3.5 text-indigo-400" />
                     {vol.active_task_count} active tasks
                   </div>
-                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full border uppercase tracking-wider ${getLoadBadge(vol.load_indicator)}`}>
+                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border uppercase tracking-wider ${getLoadBadge(vol.load_indicator)}`}>
                     {vol.load_indicator}
                   </span>
                 </div>

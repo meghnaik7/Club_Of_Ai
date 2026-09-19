@@ -13,7 +13,7 @@ from .event import (
     EventTimelineItem,
     EventPlanGenerated
 )
-from .volunteer import Volunteer, VolunteerCreate, VolunteerUpdate, VolunteerResponse
+from .volunteer import Volunteer, VolunteerCreate, VolunteerUpdate, VolunteerResponse, UserInfo
 from .task import Task, TaskCreate, TaskUpdate, TaskComment, TaskCommentCreate, TaskDependency, TaskAssignment
 from .document import (
     DocumentResponse, DocumentCreate, DocumentUpdate, DocumentAskRequest, DocumentAskResponse,

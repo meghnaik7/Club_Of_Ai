@@ -18,14 +18,21 @@ except ImportError:
     from backend.app.models.task import Task, TaskAssignment, TaskStatus
     from backend.app.models.event import Event
 
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, HumanMessage
+try:
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import SystemMessage, HumanMessage
+except ImportError:
+    ChatOpenAI = None
+    from ai.tools.compat import SystemMessage, HumanMessage
 
 logger = logging.getLogger(__name__)
 
 def get_llm():
-    if getattr(settings, "OPENAI_API_KEY", None):
-        return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=getattr(settings, "OPENAI_MODEL", "gpt-4o-mini"))
+    if ChatOpenAI is not None and getattr(settings, "OPENAI_API_KEY", None):
+        try:
+            return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=getattr(settings, "OPENAI_MODEL", "gpt-4o-mini"))
+        except Exception:
+            return None
     return None
 
 def _parse_date(d: Any) -> Optional[datetime]:

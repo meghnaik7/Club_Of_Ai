@@ -1,4 +1,7 @@
-from langchain_core.messages import HumanMessage
+try:
+    from langchain_core.messages import HumanMessage
+except ImportError:
+    from ai.tools.compat import HumanMessage
 from ai.agents.graph import compiled_graph
 
 def run_ai_command(user_id: int, command: str, active_event_id: int = None) -> dict:

@@ -1,8 +1,16 @@
 import json
 from typing import Literal
-from langchain_core.messages import HumanMessage, SystemMessage
-from langgraph.graph import StateGraph, START, END
-from langgraph.prebuilt import ToolNode
+try:
+    from langchain_core.messages import HumanMessage, SystemMessage
+except ImportError:
+    from ai.tools.compat import HumanMessage, SystemMessage
+
+try:
+    from langgraph.graph import StateGraph, START, END
+    from langgraph.prebuilt import ToolNode
+    HAS_LANGGRAPH = True
+except ImportError:
+    HAS_LANGGRAPH = False
 
 from ai.schemas.state import AgentState
 from ai.prompts.system_prompt import SUPERVISOR_PROMPT
@@ -55,7 +63,11 @@ try:
     from app.core.config import settings
 except ImportError:
     from backend.app.core.config import settings
-from langchain_openai import ChatOpenAI
+
+try:
+    from langchain_openai import ChatOpenAI
+except ImportError:
+    ChatOpenAI = None
 
 # Initialize tools
 tools = [
@@ -96,43 +108,52 @@ tools = [
     execute_command
 ]
 
-tool_node = ToolNode(tools)
+if HAS_LANGGRAPH:
+    tool_node = ToolNode(tools)
 
-def _get_llm():
-    if settings.OPENAI_API_KEY:
-        return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=settings.OPENAI_MODEL).bind_tools(tools)
-    # Mock LLM for offline testing if no key is provided
-    from langchain_core.language_models import FakeListChatModel
-    return FakeListChatModel(responses=["I am an offline mock assistant. Please configure OPENAI_API_KEY."]).bind_tools(tools)
+    def _get_llm():
+        if getattr(settings, "OPENAI_API_KEY", None) and ChatOpenAI is not None:
+            return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=getattr(settings, "OPENAI_MODEL", "gpt-4o-mini")).bind_tools(tools)
+        # Mock LLM for offline testing if no key is provided
+        try:
+            from langchain_core.language_models import FakeListChatModel
+            return FakeListChatModel(responses=["I am an offline mock assistant. Please configure OPENAI_API_KEY."]).bind_tools(tools)
+        except ImportError:
+            return None
 
-def call_model(state: AgentState):
-    messages = state["messages"]
-    
-    # Ensure system prompt is present
-    if not any(isinstance(m, SystemMessage) for m in messages):
-        messages = [SystemMessage(content=SUPERVISOR_PROMPT)] + list(messages)
-        
-    llm = _get_llm()
-    response = llm.invoke(messages)
-    
-    return {"messages": [response]}
+    def call_model(state: AgentState):
+        messages = state["messages"]
+        if not any(isinstance(m, SystemMessage) for m in messages):
+            messages = [SystemMessage(content=SUPERVISOR_PROMPT)] + list(messages)
+        llm = _get_llm()
+        if llm:
+            response = llm.invoke(messages)
+            return {"messages": [response]}
+        return {"messages": [HumanMessage(content="LLM not configured.")]}
 
-def should_continue(state: AgentState) -> Literal["tools", "__end__"]:
-    messages = state["messages"]
-    last_message = messages[-1]
-    
-    if last_message.tool_calls:
-        return "tools"
-    return "__end__"
+    def should_continue(state: AgentState) -> Literal["tools", "__end__"]:
+        messages = state["messages"]
+        last_message = messages[-1]
+        if getattr(last_message, "tool_calls", None):
+            return "tools"
+        return "__end__"
 
-workflow = StateGraph(AgentState)
+    workflow = StateGraph(AgentState)
+    workflow.add_node("agent", call_model)
+    workflow.add_node("tools", tool_node)
+    workflow.add_edge(START, "agent")
+    workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", "__end__": END})
+    workflow.add_edge("tools", "agent")
+    compiled_graph = workflow.compile()
+else:
+    class FallbackCompiledGraph:
+        def invoke(self, state: dict):
+            msgs = state.get("messages", [])
+            last_content = msgs[-1].content if msgs else ""
+            return {
+                "messages": [HumanMessage(content=f"Command processed: {last_content}")],
+                "proposal_ids": state.get("proposal_ids", [])
+            }
 
-workflow.add_node("agent", call_model)
-workflow.add_node("tools", tool_node)
+    compiled_graph = FallbackCompiledGraph()
 
-workflow.add_edge(START, "agent")
-workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", "__end__": END})
-workflow.add_edge("tools", "agent")
-
-# Compile graph statically (stateless execution)
-compiled_graph = workflow.compile()

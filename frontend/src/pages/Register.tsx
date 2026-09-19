@@ -46,51 +46,51 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center mb-4 border border-indigo-500/30">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 sm:p-6">
+      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl">
+        <div className="flex flex-col items-center mb-6 sm:mb-8 text-center">
+          <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center mb-3 sm:mb-4 border border-indigo-500/20 shadow-inner">
             <UserPlus className="w-6 h-6 text-indigo-400" />
           </div>
-          <h2 className="text-2xl font-bold text-white">Create an account</h2>
-          <p className="text-slate-400 mt-2">Join ClubOps as a Volunteer</p>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Create an account</h2>
+          <p className="text-sm text-slate-400 mt-1.5">Join ClubOps as a Volunteer</p>
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-lg mb-6 text-sm">
+          <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 sm:p-3.5 rounded-xl mb-5 text-sm">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Full Name</label>
+            <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">Full Name</label>
             <input
               type="text"
               required
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 placeholder-slate-500 transition-colors"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="John Doe"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
+            <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">Email</label>
             <input
               type="email"
               required
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 placeholder-slate-500 transition-colors"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Password</label>
+            <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">Password</label>
             <input
               type="password"
               required
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 placeholder-slate-500 transition-colors"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -100,13 +100,13 @@ export default function Register() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg px-4 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl px-4 py-2.5 text-sm transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed mt-5 sm:mt-6"
           >
             {isLoading ? 'Creating account...' : 'Create account'}
           </button>
         </form>
 
-        <p className="mt-8 text-center text-sm text-slate-400">
+        <p className="mt-6 sm:mt-8 text-center text-sm text-slate-400">
           Already have an account?{' '}
           <Link to="/login" className="text-indigo-400 hover:text-indigo-300 font-medium">
             Sign in

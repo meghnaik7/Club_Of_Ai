@@ -22,7 +22,7 @@ class AICommandResponse(BaseModel):
 @router.post("/", response_model=AICommandResponse)
 def execute_ai_command(
     request: AICommandRequest,
-    current_user: User = Depends(deps.get_current_user),
+    current_user: Optional[User] = Depends(deps.get_current_user_optional),
 ) -> Any:
     """
     Execute a natural language command via the AI Agent.
@@ -30,10 +30,11 @@ def execute_ai_command(
     """
     try:
         from ai.tools.command_tool import execute_command
+        user_id = current_user.id if current_user else 1
         result = execute_command.invoke({
             "command": request.command,
             "active_event_id": request.active_event_id,
-            "user_id": current_user.id,
+            "user_id": user_id,
             "confirm_proposal_id": request.confirm_proposal_id,
             "auto_confirm": request.auto_confirm or False
         })

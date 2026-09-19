@@ -1,4 +1,7 @@
-from langchain_core.tools import tool
+try:
+    from langchain_core.tools import tool
+except ImportError:
+    from ai.tools.compat import tool
 from typing import Optional, Union, List, Dict, Any
 from app.db.session import SessionLocal
 from app.services import document_service

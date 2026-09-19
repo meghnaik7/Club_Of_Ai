@@ -1,7 +1,10 @@
 import re
 import logging
 from typing import Optional, Dict, Any, List
-from langchain_core.tools import tool
+try:
+    from langchain_core.tools import tool
+except ImportError:
+    from ai.tools.compat import tool
 
 try:
     from app.db.session import SessionLocal
