@@ -76,21 +76,12 @@ def clear_chat_history(
 def execute_ai_command(
     request: AICommandRequest,
     db: Session = Depends(deps.get_db),
-<<<<<<< HEAD
     current_user: Optional[User] = Depends(deps.get_current_user_optional),
-) -> Any:
-    """
-    Execute a natural language command via the AI Agent.
-    Interprets user intent, retrieves context, stages proposals, applies changes upon confirmation,
-    and persists chat turn history.
-=======
-    current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
     Execute a natural language command via the AI Agent.
     Interprets user intent, retrieves context, stages proposals, applies changes,
     and persists question & answer history.
->>>>>>> ac3e9df834564fff8895b000cc3a2fa48c0d62e4
     """
     try:
         from ai.tools.command_tool import execute_command
@@ -149,6 +140,7 @@ def execute_ai_command(
 
 @router.get("/checkpointer-status")
 def get_checkpointer_status() -> Dict[str, Any]:
-    """Returns runtime diagnostics of the LangGraph state checkpointer for cloud deployments."""
+    # Returns runtime diagnostics of the LangGraph state checkpointer for cloud deployments.
     from ai.agents.checkpointer import checkpointer_manager
     return checkpointer_manager.get_status()
+
