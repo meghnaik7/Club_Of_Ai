@@ -18,6 +18,7 @@ class Document(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     event_id = Column(String(100), nullable=True, index=True)
+    name = Column(String(255), nullable=True)
     filename = Column(String(255), nullable=False)
     file_path = Column(String(512), nullable=False)
     file_type = Column(String(50), nullable=False) # PDF, DOCX, TXT, application/pdf
@@ -29,10 +30,6 @@ class Document(Base):
     summary = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-
-    @property
-    def name(self) -> str:
-        return self.filename
 
     # Relationships
     chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan")

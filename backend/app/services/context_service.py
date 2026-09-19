@@ -53,7 +53,7 @@ def get_event_context(db: Session, event_id: int) -> Dict[str, Any]:
     # Query documents
     documents = (
         db.query(Document)
-        .filter(Document.event_id == event_id)
+        .filter(or_(Document.event_id == event_id, Document.event_id == str(event_id)))
         .limit(5)
         .all()
     )
@@ -84,7 +84,11 @@ def get_event_context(db: Session, event_id: int) -> Dict[str, Any]:
             for a in announcements
         ],
         "attached_documents": [
-            {"id": d.id, "name": d.name, "category": d.category}
+            {
+                "id": d.id,
+                "name": d.name or d.filename,
+                "category": d.category.value if hasattr(d.category, "value") else str(d.category) if d.category else None
+            }
             for d in documents
         ]
     }
@@ -283,9 +287,15 @@ def search_event_data(
     matched_announcements = a_query.limit(limit).all()
 
     # 3. Search documents
-    d_query = db.query(Document).filter(or_(Document.name.ilike(pattern), Document.raw_text.ilike(pattern)))
+    d_query = db.query(Document).filter(
+        or_(
+            Document.name.ilike(pattern),
+            Document.filename.ilike(pattern),
+            Document.raw_text.ilike(pattern)
+        )
+    )
     if event_id:
-        d_query = d_query.filter(Document.event_id == event_id)
+        d_query = d_query.filter(or_(Document.event_id == event_id, Document.event_id == str(event_id)))
     matched_docs = d_query.limit(limit).all()
 
     return {
@@ -294,5 +304,12 @@ def search_event_data(
         "total_results": len(matched_tasks) + len(matched_announcements) + len(matched_docs),
         "tasks": [{"id": t.id, "title": t.title, "status": str(t.status)} for t in matched_tasks],
         "announcements": [{"id": a.id, "title": a.title, "status": a.status} for a in matched_announcements],
-        "documents": [{"id": d.id, "name": d.name, "category": d.category} for d in matched_docs]
+        "documents": [
+            {
+                "id": d.id,
+                "name": d.name or d.filename,
+                "category": d.category.value if hasattr(d.category, "value") else str(d.category) if d.category else None
+            }
+            for d in matched_docs
+        ]
     }
