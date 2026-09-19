@@ -44,16 +44,20 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""
 
     def model_post_init(self, __context: object) -> None:
-        if not self.DATABASE_URL:
-            env_url = os.getenv("DATABASE_URL")
-            if env_url:
-                self.DATABASE_URL = env_url
-            else:
-                sqlite_path = BASE_DIR / "clubops.db"
-                self.DATABASE_URL = f"sqlite:///{sqlite_path.as_posix()}"
+        env_url = os.getenv("DATABASE_URL") or self.DATABASE_URL
+        if env_url and "${" not in env_url:
+            self.DATABASE_URL = env_url
+        else:
+            # Build postgresql connection string from components
+            user = self.POSTGRES_USER or "postgres"
+            pwd = self.POSTGRES_PASSWORD or "your_password"
+            host = self.POSTGRES_HOST or "localhost"
+            port = self.POSTGRES_PORT or "5432"
+            db_name = self.POSTGRES_DB or "clubops_ai"
+            self.DATABASE_URL = f"postgresql://{user}:{pwd}@{host}:{port}/{db_name}"
     
     model_config = SettingsConfigDict(
-        env_file=str(BASE_DIR / ".env"),
+        env_file=[str(BASE_DIR / ".env"), str(BASE_DIR.parent / ".env")],
         env_file_encoding="utf-8",
         extra="ignore"
     )
