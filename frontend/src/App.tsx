@@ -14,6 +14,8 @@ import VolunteerProfile from './pages/VolunteerProfile';
 import AnnouncementList from './pages/AnnouncementList';
 import AnnouncementForm from './pages/AnnouncementForm';
 import TaskList from './pages/TaskList';
+import TeamManagement from './pages/TeamManagement';
+import PermissionManagement from './pages/PermissionManagement';
 import './App.css';
 
 function App() {
@@ -27,6 +29,12 @@ function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
+
+            {/* Teams */}
+            <Route path="/teams" element={<TeamManagement />} />
+
+            {/* Permissions & Overrides */}
+            <Route path="/permissions" element={<PermissionManagement />} />
 
             {/* Events */}
             <Route path="/events" element={<EventList />} />

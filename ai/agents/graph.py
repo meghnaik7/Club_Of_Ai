@@ -147,7 +147,7 @@ if HAS_LANGGRAPH:
     compiled_graph = workflow.compile()
 else:
     class FallbackCompiledGraph:
-        def invoke(self, state: dict):
+        def invoke(self, state: dict, *args, **kwargs):
             msgs = state.get("messages", [])
             last_content = msgs[-1].content if msgs else ""
             return {

@@ -320,6 +320,27 @@ def apply_proposal(db: Session, proposal_id: int, user_id: Optional[int] = None)
                 elif action_upper == "UPDATE" and change.entity_id:
                     task = db.query(TaskModel).filter(TaskModel.id == change.entity_id).first()
                     if task:
+                        # Re-verify authorization right before applying to database
+                        if user_id:
+                            try:
+                                from app.services.authz import AuthorizationService
+                                from app.models.user import User
+                            except ImportError:
+                                from backend.app.services.authz import AuthorizationService
+                                from backend.app.models.user import User
+                            user_obj = db.query(User).filter(User.id == user_id).first()
+                            if user_obj:
+                                if "volunteer_id" in data:
+                                    AuthorizationService.require_permission(
+                                        db, user_obj, "task.assign", resource=task,
+                                        detail=f"User #{user_id} lacks permission to assign task #{task.id}"
+                                    )
+                                else:
+                                    AuthorizationService.require_permission(
+                                        db, user_obj, "task.update", resource=task,
+                                        detail=f"User #{user_id} lacks permission to update task #{task.id}"
+                                    )
+
                         prev_state = {"id": task.id, "title": task.title, "status": str(task.status)}
                         if "status" in data:
                             task.status = data["status"]

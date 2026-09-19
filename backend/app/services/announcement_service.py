@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.observability import traceable
 from app.models.announcement import Announcement
 from app.models.event import Event
 try:
@@ -49,6 +50,7 @@ def create_announcement(
     db.refresh(announcement)
     return announcement
 
+@traceable(name="generate_announcement", run_type="chain")
 def generate_announcement(
     db: Session,
     event_id: int,

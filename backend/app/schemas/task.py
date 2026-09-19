@@ -67,6 +67,7 @@ class TaskBase(BaseModel):
     start_date: Optional[datetime] = None
     due_date: Optional[datetime] = None
     parent_id: Optional[int] = None
+    team_id: Optional[int] = None
 
 class TaskCreate(TaskBase):
     event_id: int
@@ -81,10 +82,12 @@ class TaskUpdate(BaseModel):
     start_date: Optional[datetime] = None
     due_date: Optional[datetime] = None
     parent_id: Optional[int] = None
+    team_id: Optional[int] = None
 
 class TaskInDBBase(TaskBase):
     id: int
     event_id: int
+    created_by: Optional[int] = None
 
     class Config:
         from_attributes = True

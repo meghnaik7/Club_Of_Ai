@@ -38,6 +38,9 @@ def init_db():
             pass
         AppBase.metadata.create_all(bind=engine)
         logger.info(f"Connected to PostgreSQL successfully! Tables created on {engine.url.host}:{engine.url.port}/{engine.url.database}")
+        from app.core.permissions import seed_permissions
+        with SessionLocal() as db_session:
+            seed_permissions(db_session)
     except Exception as e:
         if not str(engine.url).startswith("sqlite"):
             logger.warning(
@@ -53,5 +56,8 @@ def init_db():
             )
             SessionLocal.configure(bind=engine)
             AppBase.metadata.create_all(bind=engine)
+            from app.core.permissions import seed_permissions
+            with SessionLocal() as db_session:
+                seed_permissions(db_session)
         else:
             raise e

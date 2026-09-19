@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.endpoints import auth, events, volunteers, documents, ai_commands, announcements, tasks
+from app.api.endpoints import auth, events, volunteers, documents, ai_commands, announcements, tasks, teams, permissions
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -9,3 +9,6 @@ api_router.include_router(volunteers.router, prefix="/volunteers", tags=["volunt
 api_router.include_router(documents.router, prefix="/documents", tags=["documents"])
 api_router.include_router(announcements.router, prefix="/announcements", tags=["announcements"])
 api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
+api_router.include_router(teams.router, prefix="/teams", tags=["teams"])
+api_router.include_router(permissions.router, prefix="/permissions", tags=["permissions"])
+

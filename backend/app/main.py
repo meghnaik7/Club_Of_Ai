@@ -13,12 +13,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import init_db
+from app.core.observability import init_observability, is_observability_enabled
 from app.api.api import api_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize DB tables on startup
     init_db()
+    # Initialize LangSmith Observability
+    init_observability()
     yield
 
 app = FastAPI(
@@ -51,4 +54,11 @@ def read_root():
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "service": "ClubOps AI"}
+    return {
+        "status": "ok",
+        "service": "ClubOps AI",
+        "observability": {
+            "langsmith_enabled": is_observability_enabled(),
+            "project": settings.LANGCHAIN_PROJECT
+        }
+    }
