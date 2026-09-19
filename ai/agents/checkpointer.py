@@ -7,8 +7,15 @@ from urllib.parse import urlparse, urlunparse
 logger = logging.getLogger(__name__)
 
 # Fallback in-memory saver is always available
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.checkpoint.base import BaseCheckpointSaver
+try:
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.checkpoint.base import BaseCheckpointSaver
+except (ImportError, Exception):
+    class BaseCheckpointSaver:
+        pass
+    class MemorySaver(BaseCheckpointSaver):
+        def __init__(self, *args, **kwargs):
+            self.storage = {}
 
 # Optional imports for PostgreSQL checkpointer
 try:

@@ -1,9 +1,20 @@
 import re
 import json
-from typing import Literal, Optional, List, Sequence, Dict, Any
-from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage, AIMessage, ToolMessage
-from langgraph.graph import StateGraph, START, END
-from langgraph.prebuilt import ToolNode
+try:
+    from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage, AIMessage, ToolMessage
+except ImportError:
+    from ai.tools.compat import HumanMessage, SystemMessage, BaseMessage, AIMessage, ToolMessage
+
+try:
+    from langgraph.graph import StateGraph, START, END
+    from langgraph.prebuilt import ToolNode
+    HAS_LANGGRAPH = True
+except (ImportError, Exception):
+    StateGraph = None
+    START = None
+    END = None
+    ToolNode = None
+    HAS_LANGGRAPH = False
 
 from ai.schemas.state import AgentState
 from ai.prompts.system_prompt import SUPERVISOR_PROMPT
@@ -100,15 +111,18 @@ tools = [
     execute_command
 ]
 
-base_tool_node = ToolNode(tools)
+base_tool_node = ToolNode(tools) if (HAS_LANGGRAPH and ToolNode is not None) else None
 
 def safe_tool_node(state: AgentState) -> Dict[str, Any]:
     """Protected tool execution node catching exceptions and returning controlled state."""
+    if base_tool_node is None:
+        return {"messages": []}
     try:
         return base_tool_node.invoke(state)
     except Exception as exc:
         classified = classify_exception(exc)
-        last_msg = state["messages"][-1]
+        messages = state.get("messages") or []
+        last_msg = messages[-1] if messages else None
         tool_messages = []
         if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
             for tc in last_msg.tool_calls:
@@ -297,33 +311,62 @@ def should_continue(state: AgentState) -> Literal["tools", "__end__"]:
         return "tools"
     return "__end__"
 
-workflow = StateGraph(AgentState)
-
-workflow.add_node("agent", call_model)
-workflow.add_node("tools", safe_tool_node)
-
-workflow.add_edge(START, "agent")
-workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", "__end__": END})
-workflow.add_edge("tools", "agent")
-
 from ai.agents.checkpointer import checkpointer_manager, get_checkpointer
 
-# Persistent checkpointer for thread memory persistence across conversational turns
-# Defaults to PostgreSQL (PostgresSaver with ConnectionPool) in cloud, or resilient MemorySaver fallback
-memory_checkpointer = get_checkpointer()
+if HAS_LANGGRAPH and StateGraph is not None and START is not None and END is not None:
+    workflow = StateGraph(AgentState)
+    workflow.add_node("agent", call_model)
+    workflow.add_node("tools", safe_tool_node)
+    workflow.add_edge(START, "agent")
+    workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", "__end__": END})
+    workflow.add_edge("tools", "agent")
 
-# Compile graph with persistent checkpointer
-compiled_graph = workflow.compile(checkpointer=memory_checkpointer)
-
-def recompile_graph(checkpointer=None):
-    """Recompiles the LangGraph StateGraph with a specified or updated checkpointer."""
-    global compiled_graph, memory_checkpointer
-    if checkpointer is not None:
-        memory_checkpointer = checkpointer
-    else:
-        memory_checkpointer = get_checkpointer()
+    # Persistent checkpointer for thread memory persistence across conversational turns
+    memory_checkpointer = get_checkpointer()
     compiled_graph = workflow.compile(checkpointer=memory_checkpointer)
-    return compiled_graph
+
+    def recompile_graph(checkpointer=None):
+        """Recompiles the LangGraph StateGraph with a specified or updated checkpointer."""
+        global compiled_graph, memory_checkpointer
+        if checkpointer is not None:
+            memory_checkpointer = checkpointer
+        else:
+            memory_checkpointer = get_checkpointer()
+        compiled_graph = workflow.compile(checkpointer=memory_checkpointer)
+        return compiled_graph
+else:
+    class FallbackCompiledGraph:
+        def __init__(self):
+            self._threads: Dict[str, Any] = {}
+
+        def get_state(self, config: Optional[Dict[str, Any]] = None):
+            thread_id = (config or {}).get("configurable", {}).get("thread_id", "default")
+            class CheckpointState:
+                def __init__(self, values):
+                    self.values = values
+            return CheckpointState(self._threads.get(thread_id, {"messages": []}))
+
+        def invoke(self, state: Dict[str, Any], *args, config: Optional[Dict[str, Any]] = None, **kwargs):
+            thread_id = (config or {}).get("configurable", {}).get("thread_id") or state.get("thread_id", "default")
+            existing = self._threads.get(thread_id, {"messages": []})
+            all_messages = list(existing.get("messages", [])) + list(state.get("messages", []))
+            curr_state: Dict[str, Any] = dict(state)
+            curr_state["messages"] = all_messages
+
+            result = call_model(curr_state)
+
+            out_messages = all_messages + list(result.get("messages", []))
+            saved_state = dict(curr_state)
+            saved_state.update(result)
+            saved_state["messages"] = out_messages
+            self._threads[thread_id] = saved_state
+            return saved_state
+
+    compiled_graph = FallbackCompiledGraph()
+    memory_checkpointer = None
+
+    def recompile_graph(checkpointer=None):
+        return compiled_graph
 
 def get_thread_config(thread_id: str, user_id: Optional[int] = None):
     """Returns runtime execution config for thread checkpointer persistence."""
