@@ -1,7 +1,9 @@
 from typing import Optional
 from langchain_core.messages import HumanMessage
 from ai.agents.graph import compiled_graph, get_thread_config
+from ai.observability import traceable
 
+@traceable(name="run_ai_command", run_type="chain")
 def run_ai_command(
     user_id: int,
     command: str,
@@ -10,11 +12,20 @@ def run_ai_command(
     club_id: Optional[int] = None
 ) -> dict:
     """
-    Entry point to run the AI agent given a user command with short-term thread persistence
-    and long-term memory extraction.
+    Entry point to run the AI agent given a user command with short-term thread persistence,
+    LangSmith cloud observability, and long-term memory extraction.
     """
     effective_thread_id = thread_id or f"user-thread-{user_id}"
     config = get_thread_config(thread_id=effective_thread_id, user_id=user_id)
+    config["run_name"] = f"AI Command (User {user_id})"
+    config["tags"] = ["agent", "clubops", f"user:{user_id}"]
+    config["metadata"] = {
+        "user_id": user_id,
+        "active_event_id": active_event_id,
+        "command": command,
+        "club_id": club_id,
+        "thread_id": effective_thread_id
+    }
 
     initial_state = {
         "messages": [HumanMessage(content=command)],

@@ -10,6 +10,7 @@ class TaskStatus(str, enum.Enum):
     IN_PROGRESS = "IN_PROGRESS"
     DONE = "DONE"
     BLOCKED = "BLOCKED"
+    CANCELLED = "CANCELLED"
 
 class TaskPriority(str, enum.Enum):
     LOW = "LOW"
@@ -27,6 +28,8 @@ class Task(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     title = Column(String, index=True, nullable=False)
     description = Column(Text, nullable=True)
     status = Column(Enum(TaskStatus), default=TaskStatus.TODO, nullable=False)
@@ -37,6 +40,8 @@ class Task(Base):
     parent_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
     
     # Relationships
+    team = relationship("Team", back_populates="tasks")
+    creator = relationship("User", foreign_keys=[created_by])
     assignments = relationship("TaskAssignment", back_populates="task", cascade="all, delete-orphan")
     subtasks = relationship("Task", backref=backref('parent', remote_side=[id]))
     dependencies_out = relationship("TaskDependency", foreign_keys="TaskDependency.dependent_task_id", back_populates="dependent_task", cascade="all, delete-orphan")

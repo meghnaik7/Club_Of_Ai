@@ -13,8 +13,27 @@ from langchain_core.messages import SystemMessage, HumanMessage
 logger = logging.getLogger(__name__)
 
 def get_llm():
+    provider = getattr(settings, "LLM_PROVIDER", "").lower()
+    if provider == "openrouter" or getattr(settings, "OPENROUTER_API_KEY", None):
+        return ChatOpenAI(
+            api_key=getattr(settings, "OPENROUTER_API_KEY", "") or getattr(settings, "OPENAI_API_KEY", ""),
+            model=getattr(settings, "OPENROUTER_MODEL", getattr(settings, "LLM_MODEL", "openai/gpt-4o-mini")),
+            base_url=getattr(settings, "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+            default_headers={
+                "HTTP-Referer": "https://github.com/meghnaik7/Club_Of_Ai",
+                "X-Title": "ClubOps AI",
+            },
+        )
+    if "azure" in provider and getattr(settings, "AZURE_OPENAI_ENDPOINT", None) and (getattr(settings, "AZURE_OPENAI_API_KEY", None) or getattr(settings, "OPENAI_API_KEY", None)):
+        from langchain_openai import AzureChatOpenAI
+        return AzureChatOpenAI(
+            azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+            api_key=settings.AZURE_OPENAI_API_KEY or settings.OPENAI_API_KEY,
+            api_version=getattr(settings, "AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
+            azure_deployment=getattr(settings, "AZURE_OPENAI_DEPLOYMENT_NAME", getattr(settings, "OPENAI_MODEL", "gpt-5.4-mini")),
+        )
     if getattr(settings, "OPENAI_API_KEY", None):
-        return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=getattr(settings, "OPENAI_MODEL", "gpt-4o-mini"))
+        return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=getattr(settings, "OPENAI_MODEL", "openai/gpt-4o-mini"))
     return None
 
 def create_announcement(
@@ -65,7 +84,8 @@ def generate_announcement(
         sys_msg = (
             "You are a communications specialist for college club events. "
             "Generate an engaging, high-impact announcement draft using the provided live event details. "
-            "Return JSON with two keys: 'title' (a catchy headline) and 'content' (the complete body of the announcement)."
+            "You must include the exact event title, the venue, and key points from the event description in the announcement body. "
+            "Return JSON with two keys: 'title' (a catchy headline including the event title) and 'content' (the complete body of the announcement including venue and description details)."
         )
         prompt = (
             f"Event Title: {event.title}\n"
@@ -144,10 +164,11 @@ def generate_announcement_variants(
             "Convert the provided announcement into 3 platform variants: WhatsApp, Email, and Instagram. "
             "Return JSON with format:\n"
             "{\n"
-            '  "whatsapp": "string with emojis and *bold* syntax",\n'
+            '  "whatsapp": "string with emojis, *Date:*, *Venue:*, and *bold* syntax",\n'
             '  "email": {"subject": "string", "body": "full formatted email body"},\n'
-            '  "instagram": {"caption": "engaging visual caption with emojis", "hashtags": ["#tag1", "#tag2"]}\n'
-            "}"
+            '  "instagram": {"caption": "engaging visual caption with emojis", "hashtags": ["#ClubOfAI", "#AI"]}\n'
+            "}\n"
+            "Include #ClubOfAI in instagram hashtags."
         )
         user_prompt = (
             f"Event: {event_title}\n"

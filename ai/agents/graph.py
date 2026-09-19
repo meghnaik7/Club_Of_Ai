@@ -306,13 +306,24 @@ workflow.add_edge(START, "agent")
 workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", "__end__": END})
 workflow.add_edge("tools", "agent")
 
-from langgraph.checkpoint.memory import MemorySaver
+from ai.agents.checkpointer import checkpointer_manager, get_checkpointer
 
 # Persistent checkpointer for thread memory persistence across conversational turns
-memory_checkpointer = MemorySaver()
+# Defaults to PostgreSQL (PostgresSaver with ConnectionPool) in cloud, or resilient MemorySaver fallback
+memory_checkpointer = get_checkpointer()
 
-# Compile graph with memory checkpointer
+# Compile graph with persistent checkpointer
 compiled_graph = workflow.compile(checkpointer=memory_checkpointer)
+
+def recompile_graph(checkpointer=None):
+    """Recompiles the LangGraph StateGraph with a specified or updated checkpointer."""
+    global compiled_graph, memory_checkpointer
+    if checkpointer is not None:
+        memory_checkpointer = checkpointer
+    else:
+        memory_checkpointer = get_checkpointer()
+    compiled_graph = workflow.compile(checkpointer=memory_checkpointer)
+    return compiled_graph
 
 def get_thread_config(thread_id: str, user_id: Optional[int] = None):
     """Returns runtime execution config for thread checkpointer persistence."""
@@ -320,3 +331,4 @@ def get_thread_config(thread_id: str, user_id: Optional[int] = None):
     if user_id is not None:
         cfg["configurable"]["user_id"] = str(user_id)
     return cfg
+

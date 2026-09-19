@@ -47,3 +47,14 @@ try:
 except ImportError:
     pass
 
+try:
+    from app.models.escalation import TaskEscalation
+except ImportError:
+    pass
+
+try:
+    from app.models.team import Club, Team, TeamMembership, ClubMembership, EventMembership
+    from app.models.permission import Permission, RolePermission, UserPermission
+except ImportError:
+    pass
+

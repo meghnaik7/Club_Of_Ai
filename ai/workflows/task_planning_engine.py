@@ -24,8 +24,27 @@ from langchain_core.messages import SystemMessage, HumanMessage
 logger = logging.getLogger(__name__)
 
 def get_llm():
+    provider = getattr(settings, "LLM_PROVIDER", "").lower()
+    if provider == "openrouter" or getattr(settings, "OPENROUTER_API_KEY", None):
+        return ChatOpenAI(
+            api_key=getattr(settings, "OPENROUTER_API_KEY", "") or getattr(settings, "OPENAI_API_KEY", ""),
+            model=getattr(settings, "OPENROUTER_MODEL", getattr(settings, "LLM_MODEL", "openai/gpt-4o-mini")),
+            base_url=getattr(settings, "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+            default_headers={
+                "HTTP-Referer": "https://github.com/meghnaik7/Club_Of_Ai",
+                "X-Title": "ClubOps AI",
+            },
+        )
+    if "azure" in provider and getattr(settings, "AZURE_OPENAI_ENDPOINT", None) and (getattr(settings, "AZURE_OPENAI_API_KEY", None) or getattr(settings, "OPENAI_API_KEY", None)):
+        from langchain_openai import AzureChatOpenAI
+        return AzureChatOpenAI(
+            azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+            api_key=settings.AZURE_OPENAI_API_KEY or settings.OPENAI_API_KEY,
+            api_version=getattr(settings, "AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
+            azure_deployment=getattr(settings, "AZURE_OPENAI_DEPLOYMENT_NAME", getattr(settings, "OPENAI_MODEL", "gpt-5.4-mini")),
+        )
     if getattr(settings, "OPENAI_API_KEY", None):
-        return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=getattr(settings, "OPENAI_MODEL", "gpt-4o-mini"))
+        return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=getattr(settings, "OPENAI_MODEL", "openai/gpt-4o-mini"))
     return None
 
 def _parse_date(d: Any) -> Optional[datetime]:
@@ -61,8 +80,8 @@ def generate_task_graph(
         from app.ai.response_validator import ResponseValidator
         sys_msg = (
             "You are an expert event planning AI. Given an event brief, generate a comprehensive, structured "
-            "task graph with phases (PRE_EVENT, DAY_OF, POST_EVENT), tasks, subtasks, dependencies, estimated duration, "
-            "and suggested skills. Return strict JSON format with key 'tasks'."
+            "task graph with at least 5 tasks across phases (PRE_EVENT, DAY_OF, POST_EVENT), tasks, subtasks, dependencies, estimated duration, "
+            "and suggested skills. Return strict JSON format with key 'tasks' as a list of task objects."
         )
         user_msg = (
             f"Event Brief: {event_brief}\n"
@@ -72,11 +91,24 @@ def generate_task_graph(
         res = llm_service.invoke(prompt=user_msg, system_prompt=sys_msg).content
         parsed = ResponseValidator.extract_json(res)
         if isinstance(parsed, dict) and parsed.get("tasks"):
+            raw_tasks = parsed.get("tasks", [])
+            normalized_tasks = []
+            for t in raw_tasks:
+                if isinstance(t, dict):
+                    if "title" not in t and "task" in t:
+                        t["title"] = t["task"]
+                    if "estimated_duration_hours" not in t:
+                        t["estimated_duration_hours"] = t.get("duration_hours") or 4
+                    if "subtasks" not in t:
+                        t["subtasks"] = []
+                    if "dependencies" not in t:
+                        t["dependencies"] = []
+                    normalized_tasks.append(t)
             return {
                 "event_brief": event_brief,
                 "base_event_date": _format_date(base_date),
-                "total_tasks": len(parsed["tasks"]),
-                "tasks": parsed["tasks"]
+                "total_tasks": len(normalized_tasks),
+                "tasks": normalized_tasks
             }
     except Exception as e:
         logger.info(f"Handled LLM failover in task graph generation: {e}")
@@ -204,11 +236,22 @@ def split_task(
         res = llm_service.invoke(prompt=prompt, system_prompt=sys_msg).content
         parsed = ResponseValidator.extract_json(res)
         if isinstance(parsed, dict) and parsed.get("subtasks"):
+            raw_subtasks = parsed.get("subtasks", [])
+            normalized = []
+            for idx, st in enumerate(raw_subtasks):
+                if isinstance(st, dict):
+                    if "title" not in st and "task" in st:
+                        st["title"] = st["task"]
+                    if "depends_on_subtask_index" not in st:
+                        st["depends_on_subtask_index"] = idx - 1 if idx > 0 else None
+                    if "suggested_skills" not in st:
+                        st["suggested_skills"] = st.get("skills") or ["Planning", "Execution"]
+                    normalized.append(st)
             return {
                 "parent_task_id": task_id,
                 "parent_task_title": task_title,
-                "subtasks_count": len(parsed.get("subtasks", [])),
-                "subtasks": parsed.get("subtasks", [])
+                "subtasks_count": len(normalized),
+                "subtasks": normalized
             }
     except Exception as e:
         logger.info(f"Handled LLM failover in split_task: {e}")

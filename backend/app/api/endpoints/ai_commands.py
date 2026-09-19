@@ -136,3 +136,10 @@ def execute_ai_command(
             status_code=ai_err.status_code,
             detail=ai_err.to_user_dict()["error"]
         )
+
+@router.get("/checkpointer-status")
+def get_checkpointer_status() -> Dict[str, Any]:
+    """Returns runtime diagnostics of the LangGraph state checkpointer for cloud deployments."""
+    from ai.agents.checkpointer import checkpointer_manager
+    return checkpointer_manager.get_status()
+

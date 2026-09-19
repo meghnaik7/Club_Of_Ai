@@ -112,9 +112,56 @@ def _handle_assignment_command(
             "message": f"No unassigned tasks found matching the criteria."
         }
 
-    # Stage changes in AIProposal (never direct write to production state!)
-    changes = []
+    # Check authorization scoping
+    try:
+        from app.services.authz import AuthorizationService
+        from app.models.team import TeamMembership
+    except ImportError:
+        from backend.app.services.authz import AuthorizationService
+        from backend.app.models.team import TeamMembership
+
+    user = db.query(User).filter(User.id == user_id).first() if user_id else None
+    authorized_tasks = []
+    unauthorized_tasks = []
+    unauthorized_by_team: Dict[str, int] = {}
+
     for t in tasks_to_assign:
+        can_assign = AuthorizationService.can(db, user, "task.assign", resource=t) if user else True
+        if can_assign and user and not AuthorizationService.is_club_leader(db, user) and t.team_id:
+            vol_user_id = volunteer.get("user_id")
+            if not vol_user_id:
+                vol_obj = db.query(Volunteer).filter(Volunteer.id == volunteer_id).first()
+                vol_user_id = vol_obj.user_id if vol_obj else None
+            if vol_user_id:
+                is_mem = db.query(TeamMembership).filter(
+                    TeamMembership.team_id == t.team_id,
+                    TeamMembership.user_id == vol_user_id
+                ).first()
+                if not is_mem:
+                    can_assign = False
+
+        if can_assign:
+            authorized_tasks.append(t)
+        else:
+            unauthorized_tasks.append(t)
+            team_name = t.team.name if t.team else "General / Other"
+            unauthorized_by_team[team_name] = unauthorized_by_team.get(team_name, 0) + 1
+
+    if not authorized_tasks:
+        if unauthorized_tasks:
+            breakdown_str = ", ".join(f"{tname}: {cnt}" for tname, cnt in unauthorized_by_team.items())
+            return {
+                "status": "FORBIDDEN",
+                "message": f"Found {len(tasks_to_assign)} unowned task(s), but you do not have authority to assign them ({breakdown_str}). Only the respective Team Leaders or the Club Leader can assign these tasks."
+            }
+        return {
+            "status": "COMPLETED",
+            "message": "No unassigned tasks found matching the criteria."
+        }
+
+    # Stage changes in AIProposal for authorized tasks ONLY
+    changes = []
+    for t in authorized_tasks:
         changes.append({
             "entity_type": "TASK",
             "entity_id": t.id,
@@ -129,7 +176,7 @@ def _handle_assignment_command(
             "explanation": f"Assign task '{t.title}' to {volunteer_name} (ID: {volunteer_id})."
         })
 
-    intent = f"Assign {len(tasks_to_assign)} task(s) to {volunteer_name}"
+    intent = f"Assign {len(authorized_tasks)} task(s) to {volunteer_name}"
     proposal_resp = proposal_service.create_proposal(
         db=db,
         user_id=user_id,
@@ -140,6 +187,20 @@ def _handle_assignment_command(
 
     # Preview action diff
     diff = proposal_service.preview_action_diff(db=db, proposal_id=proposal_id)
+
+    # Build clear informative feedback for the user
+    if unauthorized_tasks:
+        breakdown_str = ", ".join(f"{tname}: {cnt}" for tname, cnt in unauthorized_by_team.items())
+        auth_team_names = set(t.team.name for t in authorized_tasks if t.team)
+        auth_teams_str = ", ".join(auth_team_names) if auth_team_names else "authorized scope"
+        feedback_msg = (
+            f"Found {len(tasks_to_assign)} unowned tasks. You have authority to manage {len(authorized_tasks)} tasks "
+            f"in the {auth_teams_str}. Staged proposal #{proposal_id} for those {len(authorized_tasks)} tasks. "
+            f"The remaining {len(unauthorized_tasks)} tasks belong to other teams ({breakdown_str}) "
+            f"and require their respective Team Leaders or the Club Leader to assign."
+        )
+    else:
+        feedback_msg = f"Staged proposal #{proposal_id} to {intent}. Please review the diff and confirm to apply to production."
 
     if auto_confirm:
         apply_resp = proposal_service.apply_proposal(db=db, proposal_id=proposal_id, user_id=user_id)
@@ -156,10 +217,10 @@ def _handle_assignment_command(
         "status": "AWAITING_CONFIRMATION",
         "proposal_id": proposal_id,
         "intent": intent,
-        "tasks_affected": [t.id for t in tasks_to_assign],
+        "tasks_affected": [t.id for t in authorized_tasks],
         "diff_preview": diff.model_dump(),
         "requires_confirmation": True,
-        "message": f"Staged proposal #{proposal_id} to {intent}. Please review the diff and confirm to apply to production."
+        "message": feedback_msg
     }
 
 

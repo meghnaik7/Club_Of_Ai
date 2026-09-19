@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, LayoutDashboard, Calendar, Users, Megaphone, CheckSquare, Sparkles, Menu, X, BookOpen } from 'lucide-react';
+import { LogOut, LayoutDashboard, Calendar, Users, Megaphone, CheckSquare, Sparkles, Menu, X, BookOpen, Briefcase, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AIChatPanel from './AIChatPanel';
 
@@ -11,19 +11,29 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children, title, activeEventId }: DashboardLayoutProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, isClubLeader, userTeams } = useAuth();
   const location = useLocation();
   const [aiOpen, setAiOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/teams', icon: Briefcase, label: 'Teams' },
     { to: '/events', icon: Calendar, label: 'Events' },
     { to: '/volunteers', icon: Users, label: 'Volunteers' },
     { to: '/tasks', icon: CheckSquare, label: 'Tasks' },
     { to: '/announcements', icon: Megaphone, label: 'Announcements' },
     { to: '/documents', icon: BookOpen, label: 'RAG Knowledge' },
+    ...(isClubLeader ? [{ to: '/permissions', icon: ShieldCheck, label: 'Permissions' }] : []),
   ];
+
+  const getRoleLabel = () => {
+    if (isClubLeader) return 'Club Leader';
+    const leaderTeam = userTeams.find(t => t.role === 'TEAM_LEADER');
+    if (leaderTeam) return `${leaderTeam.name} Lead`;
+    if (userTeams.length > 0) return `${userTeams[0].name} Member`;
+    return user?.role?.toLowerCase().replace('_', ' ') || 'Member';
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 flex text-slate-200 antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
@@ -83,7 +93,17 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
               </div>
               <div className="overflow-hidden">
                 <p className="text-xs font-semibold text-white truncate">{user?.full_name}</p>
-                <p className="text-[11px] text-slate-400 capitalize">{user?.role?.toLowerCase().replace('_', ' ')}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className={`inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded ${
+                    isClubLeader
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : userTeams.some(t => t.role === 'TEAM_LEADER')
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-slate-700/60 text-slate-300'
+                  }`}>
+                    {getRoleLabel()}
+                  </span>
+                </div>
               </div>
             </div>
             <button
@@ -145,7 +165,17 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
                 </div>
                 <div className="truncate">
                   <p className="text-xs font-medium text-white truncate">{user?.full_name}</p>
-                  <p className="text-[10px] text-slate-500">{user?.email}</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className={`inline-block px-1.5 py-0.5 text-[9px] font-semibold rounded ${
+                      isClubLeader
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        : userTeams.some(t => t.role === 'TEAM_LEADER')
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-slate-700/60 text-slate-300'
+                    }`}>
+                      {getRoleLabel()}
+                    </span>
+                  </div>
                 </div>
               </div>
               <button

@@ -78,3 +78,55 @@ def read_users(
     """
     return db.query(User).all()
 
+
+@router.get("/me/summary", response_model=schemas.UserAuthzSummary)
+def read_user_authz_summary(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Get current user authorization profile including roles, teams, and permissions.
+    """
+    from app.services.authz import AuthorizationService
+    return AuthorizationService.get_user_authz_summary(db, current_user)
+
+
+@router.get("/me/permissions")
+def read_user_permissions(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Get effective permission keys list for current user.
+    """
+    from app.services.authz import AuthorizationService
+    summary = AuthorizationService.get_user_authz_summary(db, current_user)
+    return summary.get("permissions", [])
+
+
+@router.get("/me/teams")
+def read_user_teams(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Get all teams and roles for the current user.
+    """
+    from app.services.authz import AuthorizationService
+    summary = AuthorizationService.get_user_authz_summary(db, current_user)
+    return summary.get("teams", [])
+
+
+@router.get("/me/events")
+def read_user_events(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Get event roles for the current user.
+    """
+    from app.services.authz import AuthorizationService
+    summary = AuthorizationService.get_user_authz_summary(db, current_user)
+    return summary.get("event_roles", [])
+
+

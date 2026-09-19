@@ -7,7 +7,9 @@ from ai.rag.retrieval import retrieve_candidate_chunks
 from ai.rag.reranker import rerank_chunks
 from ai.rag.crag_grader import grade_retrieved_documents_crag
 from ai.rag.self_rag import synthesize_grounded_answer_self_rag
+from ai.observability import traceable
 
+@traceable(name="execute_rag_pipeline", run_type="retriever")
 def execute_rag_pipeline(
     db: Session,
     query: str,

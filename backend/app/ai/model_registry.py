@@ -51,17 +51,24 @@ class ModelRegistry:
         self._models.clear()
 
         # 1. Primary Model
-        primary_provider = getattr(settings, "PRIMARY_LLM_PROVIDER", "gemini").lower()
-        primary_model = getattr(settings, "PRIMARY_LLM_MODEL", "gemini-1.5-flash")
-        primary_key = getattr(settings, "PRIMARY_LLM_API_KEY", "") or getattr(settings, "GEMINI_API_KEY", "")
-        if not primary_key and primary_provider == "openai":
-            primary_key = getattr(settings, "OPENAI_API_KEY", "")
+        primary_provider = getattr(settings, "PRIMARY_LLM_PROVIDER", getattr(settings, "LLM_PROVIDER", "openrouter")).lower()
+        primary_model = getattr(settings, "PRIMARY_LLM_MODEL", getattr(settings, "LLM_MODEL", "openai/gpt-4o-mini"))
+        primary_key = getattr(settings, "PRIMARY_LLM_API_KEY", "") or getattr(settings, "OPENROUTER_API_KEY", "") or getattr(settings, "AZURE_OPENAI_API_KEY", "") or getattr(settings, "OPENAI_API_KEY", "")
+        if not primary_key and primary_provider in ("gemini", "google"):
+            primary_key = getattr(settings, "GEMINI_API_KEY", "")
+        if "azure" in primary_provider:
+            primary_base_url = getattr(settings, "AZURE_OPENAI_ENDPOINT", None)
+        elif primary_provider == "openrouter":
+            primary_base_url = getattr(settings, "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        else:
+            primary_base_url = None
 
         self._models["primary"] = ModelConfig(
             name="primary",
             provider=primary_provider,
             model=primary_model,
             api_key=primary_key,
+            base_url=primary_base_url,
             timeout=float(getattr(settings, "LLM_TIMEOUT", 30.0)),
             max_retries=int(getattr(settings, "MAX_RETRIES", 2)),
             supports_tools=True,
@@ -69,15 +76,22 @@ class ModelRegistry:
         )
 
         # 2. Fallback Model
-        fallback_provider = getattr(settings, "FALLBACK_LLM_PROVIDER", "openai").lower()
-        fallback_model = getattr(settings, "FALLBACK_LLM_MODEL", "gpt-4o-mini")
-        fallback_key = getattr(settings, "FALLBACK_LLM_API_KEY", "") or getattr(settings, "OPENAI_API_KEY", "")
+        fallback_provider = getattr(settings, "FALLBACK_LLM_PROVIDER", "openrouter").lower()
+        fallback_model = getattr(settings, "FALLBACK_LLM_MODEL", getattr(settings, "OPENROUTER_MODEL", "openai/gpt-4o-mini"))
+        fallback_key = getattr(settings, "FALLBACK_LLM_API_KEY", "") or getattr(settings, "OPENROUTER_API_KEY", "") or getattr(settings, "AZURE_OPENAI_API_KEY", "") or getattr(settings, "OPENAI_API_KEY", "")
+        if "azure" in fallback_provider:
+            fallback_base_url = getattr(settings, "AZURE_OPENAI_ENDPOINT", None)
+        elif fallback_provider == "openrouter":
+            fallback_base_url = getattr(settings, "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        else:
+            fallback_base_url = None
 
         self._models["fallback"] = ModelConfig(
             name="fallback",
             provider=fallback_provider,
             model=fallback_model,
             api_key=fallback_key,
+            base_url=fallback_base_url,
             timeout=float(getattr(settings, "LLM_TIMEOUT", 30.0)),
             max_retries=int(getattr(settings, "MAX_RETRIES", 2)),
             supports_tools=True,
@@ -86,15 +100,15 @@ class ModelRegistry:
 
         # 3. Secondary Fallback Model (e.g. OpenRouter or alternative)
         sec_provider = getattr(settings, "FALLBACK_SECONDARY_PROVIDER", "openrouter").lower()
-        sec_model = getattr(settings, "FALLBACK_SECONDARY_MODEL", "google/gemini-flash-1.5")
-        sec_key = getattr(settings, "FALLBACK_SECONDARY_API_KEY", "") or os.getenv("OPENROUTER_API_KEY", "")
+        sec_model = getattr(settings, "FALLBACK_SECONDARY_MODEL", "openai/gpt-4o-mini")
+        sec_key = getattr(settings, "FALLBACK_SECONDARY_API_KEY", "") or getattr(settings, "OPENROUTER_API_KEY", "") or os.getenv("OPENROUTER_API_KEY", "")
 
         self._models["secondary"] = ModelConfig(
             name="secondary",
             provider=sec_provider,
             model=sec_model,
             api_key=sec_key,
-            base_url="https://openrouter.ai/api/v1" if sec_provider == "openrouter" else None,
+            base_url=getattr(settings, "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1") if sec_provider == "openrouter" else None,
             timeout=float(getattr(settings, "LLM_TIMEOUT", 30.0)),
             max_retries=int(getattr(settings, "MAX_RETRIES", 2)),
             supports_tools=True,
