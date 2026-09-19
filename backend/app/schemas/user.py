@@ -1,6 +1,11 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, ConfigDict
 from app.models.user import UserRole
+try:
+    import email_validator
+    from pydantic import EmailStr
+except ImportError:
+    EmailStr = str
 
 # Shared properties
 class UserBase(BaseModel):

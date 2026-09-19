@@ -5,6 +5,7 @@ from app.models.volunteer import VolunteerStatus
 class VolunteerBase(BaseModel):
     skills: Optional[str] = None
     availability: Optional[str] = None
+    max_capacity: Optional[int] = 10
     status: Optional[VolunteerStatus] = VolunteerStatus.ACTIVE
 
 class VolunteerCreate(VolunteerBase):

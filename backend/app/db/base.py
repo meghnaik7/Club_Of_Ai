@@ -4,8 +4,34 @@ from app.models.volunteer import Volunteer
 from app.models.event import Event
 from app.models.task import Task, TaskAssignment
 from app.models.audit_log import AuditLog
-from app.models.document import Document, DocumentChunk, PastLesson
+from app.models.document import Document, DocumentChunk
 from app.models.announcement import Announcement
+
+try:
+    from app.models.event import Expense, EventBudgetCategory
+except ImportError:
+    pass
+
+try:
+    from app.models.task import TaskDependency, TaskComment
+except ImportError:
+    pass
+
+try:
+    from app.models.document import PastLesson
+except ImportError:
+    pass
+
+try:
+    from app.models.meeting import Meeting, MeetingActionItem
+except ImportError:
+    pass
+
+try:
+    from app.models.risk import EventRisk
+except ImportError:
+    pass
+
 try:
     from ai.schemas.ai_proposal import AIProposal, AIProposalChange
 except ImportError:
