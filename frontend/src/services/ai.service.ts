@@ -41,6 +41,28 @@ const AIService = {
       command: `reject proposal ${proposal_id}`,
       active_event_id,
     }).then(r => r.data),
+
+  getHistory: (active_event_id?: number) =>
+    api.get<{
+      items: Array<{
+        id: string;
+        question: string;
+        answer: string;
+        citations?: any[];
+        status?: string;
+        proposals?: number[];
+        created_at?: string;
+      }>;
+      total: number;
+    }>('/ai/history', {
+      params: active_event_id ? { active_event_id } : {}
+    }).then(r => r.data),
+
+  clearHistory: (active_event_id?: number) =>
+    api.delete('/ai/history', {
+      params: active_event_id ? { active_event_id } : {}
+    }).then(r => r.data),
 };
 
 export default AIService;
+

@@ -331,7 +331,7 @@ export default function LandingPage() {
             {/* Connector line */}
             <div className="hidden md:block absolute top-10 left-1/6 right-1/6 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
 
-            {HOW_IT_WORKS.map((step, i) => (
+            {HOW_IT_WORKS.map((step) => (
               <div key={step.step} className="relative text-center">
                 <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 flex flex-col items-center justify-center mx-auto mb-6 shadow-2xl shadow-indigo-500/30">
                   <span className="text-indigo-200 text-[10px] font-bold uppercase tracking-widest">{step.step}</span>

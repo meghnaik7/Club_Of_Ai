@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, LayoutDashboard, Calendar, Users, Megaphone, CheckSquare, Sparkles } from 'lucide-react';
+import { LogOut, LayoutDashboard, Calendar, Users, Megaphone, CheckSquare, Sparkles, Menu, X, BookOpen } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AIChatPanel from './AIChatPanel';
 
@@ -14,6 +14,7 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
   const { user, logout } = useAuth();
   const location = useLocation();
   const [aiOpen, setAiOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -21,88 +22,173 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
     { to: '/volunteers', icon: Users, label: 'Volunteers' },
     { to: '/tasks', icon: CheckSquare, label: 'Tasks' },
     { to: '/announcements', icon: Megaphone, label: 'Announcements' },
+    { to: '/documents', icon: BookOpen, label: 'RAG Knowledge' },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 flex text-slate-200">
-      {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 hidden md:flex flex-col">
-        <div className="p-6">
-          <Link to="/dashboard" className="text-xl font-bold text-white flex items-center gap-2">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <span className="text-white text-sm font-bold">CO</span>
+    <div className="min-h-screen bg-slate-950 flex text-slate-200 antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
+      {/* Desktop Sidebar */}
+      <aside className="w-64 bg-slate-900/90 backdrop-blur-md border-r border-slate-800 hidden md:flex flex-col shrink-0 z-20">
+        <div className="p-6 border-b border-slate-800/60">
+          <Link to="/dashboard" className="text-xl font-bold text-white flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <span className="text-white text-sm font-black tracking-wider">CO</span>
             </div>
-            ClubOps AI
+            <div>
+              <span className="bg-gradient-to-r from-white via-slate-100 to-indigo-200 bg-clip-text text-transparent font-black tracking-tight">ClubOps</span>
+              <span className="text-indigo-400 font-bold ml-1 text-xs px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20">AI</span>
+            </div>
           </Link>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1 mt-2">
+        <nav className="flex-1 px-4 space-y-1.5 mt-4">
+          <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Management</p>
           {navItems.map((item) => {
-            const isActive = location.pathname.startsWith(item.to) && item.to !== '#';
+            const isActive = location.pathname === item.to || (item.to !== '/dashboard' && location.pathname.startsWith(item.to));
             return (
               <Link
                 key={item.label}
                 to={item.to}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors ${
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 ${
                   isActive
-                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                    : 'hover:bg-slate-800/50 text-slate-400 hover:text-slate-200 border border-transparent'
+                    ? 'bg-indigo-600/15 text-indigo-300 font-semibold border border-indigo-500/30 shadow-sm shadow-indigo-950'
+                    : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-200 border border-transparent'
                 }`}
               >
-                <item.icon className="w-5 h-5" />
-                <span className="font-medium text-sm">{item.label}</span>
+                <item.icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
+                <span className="text-sm">{item.label}</span>
               </Link>
             );
           })}
 
-          {/* AI Assistant Button */}
-          <button
-            onClick={() => setAiOpen(true)}
-            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all hover:bg-violet-500/10 text-violet-400 hover:text-violet-300 border border-transparent hover:border-violet-500/20 mt-2"
-          >
-            <Sparkles className="w-5 h-5" />
-            <span className="font-medium text-sm">AI Assistant</span>
-            <span className="ml-auto text-[9px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider">Beta</span>
-          </button>
+          <div className="pt-3">
+            <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Intelligence</p>
+            {/* AI Assistant Button */}
+            <button
+              onClick={() => setAiOpen(true)}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 bg-gradient-to-r from-violet-600/10 to-indigo-600/10 hover:from-violet-600/20 hover:to-indigo-600/20 text-violet-300 hover:text-white border border-violet-500/20 hover:border-violet-500/40 group"
+            >
+              <Sparkles className="w-4 h-4 text-violet-400 group-hover:scale-110 transition-transform" />
+              <span className="font-semibold text-sm">AI Assistant</span>
+              <span className="ml-auto text-[10px] bg-violet-500/20 text-violet-300 border border-violet-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Active</span>
+            </button>
+          </div>
         </nav>
 
-        <div className="p-4 mt-auto">
-          <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+        <div className="p-4 mt-auto border-t border-slate-800/60">
+          <div className="bg-slate-850/80 p-3.5 rounded-xl border border-slate-700/40 shadow-sm">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-sm">
                 {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
               <div className="overflow-hidden">
-                <p className="text-sm font-medium text-white truncate">{user?.full_name}</p>
-                <p className="text-xs text-slate-400 capitalize">{user?.role?.toLowerCase().replace('_', ' ')}</p>
+                <p className="text-xs font-semibold text-white truncate">{user?.full_name}</p>
+                <p className="text-[11px] text-slate-400 capitalize">{user?.role?.toLowerCase().replace('_', ' ')}</p>
               </div>
             </div>
             <button
               onClick={logout}
-              className="w-full flex items-center justify-center gap-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-400/10 py-2 rounded-lg transition-colors"
+              className="w-full flex items-center justify-center gap-2 text-xs font-medium text-slate-400 hover:text-red-400 hover:bg-red-400/10 py-2 rounded-lg transition-colors border border-transparent hover:border-red-500/20"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5" />
               Sign out
             </button>
           </div>
         </div>
       </aside>
 
+      {/* Mobile Drawer Overlay */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+          <div className="relative w-72 bg-slate-900 border-r border-slate-800 p-6 flex flex-col h-full z-10 shadow-2xl">
+            <div className="flex items-center justify-between pb-6 border-b border-slate-800">
+              <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold text-white flex items-center gap-2.5">
+                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-black text-xs">CO</div>
+                <span>ClubOps AI</span>
+              </Link>
+              <button onClick={() => setMobileMenuOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <nav className="flex-1 space-y-1.5 mt-6">
+              {navItems.map((item) => {
+                const isActive = location.pathname === item.to || (item.to !== '/dashboard' && location.pathname.startsWith(item.to));
+                return (
+                  <Link
+                    key={item.label}
+                    to={item.to}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium ${
+                      isActive ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <item.icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+              <button
+                onClick={() => { setMobileMenuOpen(false); setAiOpen(true); }}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium bg-violet-600/15 text-violet-300 border border-violet-500/30 mt-4"
+              >
+                <Sparkles className="w-4 h-4 text-violet-400" />
+                <span>AI Assistant</span>
+              </button>
+            </nav>
+
+            <div className="pt-4 border-t border-slate-800">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                  {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <div className="truncate">
+                  <p className="text-xs font-medium text-white truncate">{user?.full_name}</p>
+                  <p className="text-[10px] text-slate-500">{user?.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                className="w-full flex items-center justify-center gap-2 text-xs text-red-400 hover:bg-red-400/10 py-2 rounded-lg border border-red-500/20"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main content */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <header className="h-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm flex items-center justify-between px-8 shrink-0">
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
-          {/* Mobile AI button */}
-          <button
-            onClick={() => setAiOpen(true)}
-            className="md:hidden flex items-center gap-2 text-xs bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/30 text-violet-400 px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            AI
-          </button>
+      <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+        <header className="h-16 border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md flex items-center justify-between px-4 sm:px-8 shrink-0 z-10">
+          <div className="flex items-center gap-3">
+            {/* Mobile menu trigger */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <h1 className="text-base sm:text-lg font-bold text-white tracking-tight">{title}</h1>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* AI Assistant Quick Launcher */}
+            <button
+              onClick={() => setAiOpen(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:shadow-indigo-500/30 hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-violet-200" />
+              <span className="hidden sm:inline">Ask AI Agent</span>
+              <span className="sm:hidden">AI</span>
+            </button>
+          </div>
         </header>
 
-        <div className="flex-1 overflow-auto p-8">
+        <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
           {children}
         </div>
       </main>
@@ -116,3 +202,4 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
     </div>
   );
 }
+

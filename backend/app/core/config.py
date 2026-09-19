@@ -28,12 +28,37 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = str(BASE_DIR / "uploads")
     
     # LLM & Embedding Settings
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "gemini")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "gemini-embedding")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini-1.5-flash")
+    
+    # Centralized Primary and Fallback LLM Registry Settings
+    PRIMARY_LLM_PROVIDER: str = os.getenv("PRIMARY_LLM_PROVIDER", os.getenv("LLM_PROVIDER", "gemini"))
+    PRIMARY_LLM_MODEL: str = os.getenv("PRIMARY_LLM_MODEL", os.getenv("LLM_MODEL", "gemini-1.5-flash"))
+    PRIMARY_LLM_API_KEY: str = os.getenv("PRIMARY_LLM_API_KEY", os.getenv("GEMINI_API_KEY", ""))
+    
+    FALLBACK_LLM_PROVIDER: str = os.getenv("FALLBACK_LLM_PROVIDER", "openai")
+    FALLBACK_LLM_MODEL: str = os.getenv("FALLBACK_LLM_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
+    FALLBACK_LLM_API_KEY: str = os.getenv("FALLBACK_LLM_API_KEY", os.getenv("OPENAI_API_KEY", ""))
+    
+    FALLBACK_SECONDARY_PROVIDER: str = os.getenv("FALLBACK_SECONDARY_PROVIDER", "openrouter")
+    FALLBACK_SECONDARY_MODEL: str = os.getenv("FALLBACK_SECONDARY_MODEL", "google/gemini-flash-1.5")
+    FALLBACK_SECONDARY_API_KEY: str = os.getenv("FALLBACK_SECONDARY_API_KEY", os.getenv("OPENROUTER_API_KEY", ""))
+    
+    # Timeout Settings (Seconds)
+    LLM_TIMEOUT: float = float(os.getenv("LLM_TIMEOUT", "30.0"))
+    TOOL_TIMEOUT: float = float(os.getenv("TOOL_TIMEOUT", "10.0"))
+    DATABASE_TIMEOUT: float = float(os.getenv("DATABASE_TIMEOUT", "10.0"))
+    RAG_TIMEOUT: float = float(os.getenv("RAG_TIMEOUT", "10.0"))
+    TOTAL_AGENT_TIMEOUT: float = float(os.getenv("TOTAL_AGENT_TIMEOUT", "60.0"))
+    
+    # Agent Guardrail & Loop Limits
+    MAX_AGENT_ITERATIONS: int = int(os.getenv("MAX_AGENT_ITERATIONS", "10"))
+    MAX_TOOL_CALLS: int = int(os.getenv("MAX_TOOL_CALLS", "15"))
+    MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "2"))
     
     # RAG Parameters
     CHUNK_SIZE: int = 500

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Bot, User, Loader2, CheckCircle, XCircle, Sparkles, ChevronRight } from 'lucide-react';
+import { X, Send, Bot, User, Loader2, CheckCircle, XCircle, Sparkles, ChevronRight, Trash2 } from 'lucide-react';
 import AIService from '../services/ai.service';
 import type { ChatMessage, AICommandRequest } from '../services/ai.service';
+
 
 
 interface AIChatPanelProps {
@@ -96,15 +97,16 @@ function MessageBubble({ msg, onConfirm, onReject }: {
   );
 }
 
+const welcomeMessage: ChatMessage = {
+  id: 'welcome',
+  role: 'assistant',
+  content: `👋 Hi! I'm your ClubOps AI assistant.\n\nYou can ask me to:\n• List or create events, tasks, or volunteers\n• Generate announcements\n• Summarize documents & answer policy questions\n• Execute complex multi-step commands\n\nTry typing a command below!`,
+  timestamp: new Date(),
+};
+
 export default function AIChatPanel({ isOpen, onClose, activeEventId }: AIChatPanelProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: `👋 Hi! I'm your ClubOps AI assistant.\n\nYou can ask me to:\n• List or create events, tasks, or volunteers\n• Generate announcements\n• Summarize documents\n• Execute complex multi-step commands\n\nTry typing a command below!`,
-      timestamp: new Date(),
-    }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
+  const [historyCount, setHistoryCount] = useState(0);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -113,8 +115,45 @@ export default function AIChatPanel({ isOpen, onClose, activeEventId }: AIChatPa
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 150);
+
+      // Load previous past asked questions along with answers
+      AIService.getHistory(activeEventId)
+        .then(res => {
+          if (res?.items && res.items.length > 0) {
+            const historyMsgs: ChatMessage[] = [];
+            for (const item of res.items) {
+              historyMsgs.push({
+                id: `hist-q-${item.id}`,
+                role: 'user',
+                content: item.question,
+                timestamp: item.created_at ? new Date(item.created_at) : new Date(),
+              });
+              historyMsgs.push({
+                id: `hist-a-${item.id}`,
+                role: 'assistant',
+                content: item.answer,
+                status: item.status,
+                proposals: item.proposals,
+                timestamp: item.created_at ? new Date(item.created_at) : new Date(),
+              });
+            }
+            setMessages([welcomeMessage, ...historyMsgs]);
+            setHistoryCount(res.items.length);
+          }
+        })
+        .catch(err => console.error("Error loading chat history:", err));
     }
-  }, [isOpen]);
+  }, [isOpen, activeEventId]);
+
+  const handleClearHistory = async () => {
+    try {
+      await AIService.clearHistory(activeEventId);
+      setMessages([welcomeMessage]);
+      setHistoryCount(0);
+    } catch (err) {
+      console.error("Failed to clear chat history:", err);
+    }
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -200,16 +239,34 @@ export default function AIChatPanel({ isOpen, onClose, activeEventId }: AIChatPa
               <Sparkles className="w-4 h-4 text-violet-400" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">AI Assistant</h3>
-              <p className="text-xs text-slate-500">Natural language commands</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-white">AI Assistant</h3>
+                {historyCount > 0 && (
+                  <span className="text-[10px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded border border-violet-500/30 font-medium">
+                    {historyCount} past Q&A
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">Natural language commands & RAG</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            {historyCount > 0 && (
+              <button
+                onClick={handleClearHistory}
+                title="Clear chat history"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-800/80 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Messages */}

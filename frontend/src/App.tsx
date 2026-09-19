@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Login from './pages/Login';
@@ -14,6 +14,7 @@ import VolunteerProfile from './pages/VolunteerProfile';
 import AnnouncementList from './pages/AnnouncementList';
 import AnnouncementForm from './pages/AnnouncementForm';
 import TaskList from './pages/TaskList';
+import DocumentList from './pages/DocumentList';
 import './App.css';
 
 function App() {
@@ -47,6 +48,9 @@ function App() {
 
             {/* Tasks */}
             <Route path="/tasks" element={<TaskList />} />
+
+            {/* Documents & RAG Knowledge Brain */}
+            <Route path="/documents" element={<DocumentList />} />
           </Route>
         </Routes>
       </Router>

@@ -36,3 +36,14 @@ try:
     from ai.schemas.ai_proposal import AIProposal, AIProposalChange
 except ImportError:
     pass
+
+try:
+    from app.models.chat_history import RAGChatHistory
+except ImportError:
+    pass
+
+try:
+    from app.memory.models import Memory
+except ImportError:
+    pass
+

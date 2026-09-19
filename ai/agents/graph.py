@@ -1,6 +1,7 @@
+import re
 import json
-from typing import Literal
-from langchain_core.messages import HumanMessage, SystemMessage
+from typing import Literal, Optional, List, Sequence, Dict, Any
+from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage, AIMessage, ToolMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
 
@@ -53,9 +54,12 @@ from ai.tools.context_tools import (
 from ai.tools.command_tool import execute_command
 try:
     from app.core.config import settings
+    from app.ai.llm_service import llm_service
+    from app.ai.errors import classify_exception, AIError
 except ImportError:
     from backend.app.core.config import settings
-from langchain_openai import ChatOpenAI
+    from backend.app.ai.llm_service import llm_service
+    from backend.app.ai.errors import classify_exception, AIError
 
 # Initialize tools
 tools = [
@@ -96,43 +100,223 @@ tools = [
     execute_command
 ]
 
-tool_node = ToolNode(tools)
+base_tool_node = ToolNode(tools)
 
-def _get_llm():
-    if settings.OPENAI_API_KEY:
-        return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=settings.OPENAI_MODEL).bind_tools(tools)
-    # Mock LLM for offline testing if no key is provided
-    from langchain_core.language_models import FakeListChatModel
-    return FakeListChatModel(responses=["I am an offline mock assistant. Please configure OPENAI_API_KEY."]).bind_tools(tools)
+def safe_tool_node(state: AgentState) -> Dict[str, Any]:
+    """Protected tool execution node catching exceptions and returning controlled state."""
+    try:
+        return base_tool_node.invoke(state)
+    except Exception as exc:
+        classified = classify_exception(exc)
+        last_msg = state["messages"][-1]
+        tool_messages = []
+        if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
+            for tc in last_msg.tool_calls:
+                call_id = tc.get("id") or "call_err"
+                tool_messages.append(ToolMessage(
+                    content=f"Error executing tool: {classified.user_message}",
+                    tool_call_id=call_id
+                ))
+        return {
+            "messages": tool_messages,
+            "error": {
+                "code": classified.code,
+                "message": classified.user_message,
+                "retryable": classified.retryable,
+            }
+        }
 
-def call_model(state: AgentState):
+def trim_messages_for_short_term_memory(messages: Sequence[BaseMessage], max_recent: int = 10) -> List[BaseMessage]:
+    """
+    Context Trimming: Keeps context bounded to prevent unlimited conversation growth.
+    Retains the SystemMessage, a summary placeholder of trimmed messages if any,
+    and the most recent turns.
+    """
+    if len(messages) <= max_recent:
+        return list(messages)
+
+    sys_messages = [m for m in messages if isinstance(m, SystemMessage)]
+    non_sys = [m for m in messages if not isinstance(m, SystemMessage)]
+
+    if len(non_sys) > max_recent:
+        trimmed_count = len(non_sys) - max_recent
+        summary_msg = SystemMessage(
+            content=f"[Context Summary: {trimmed_count} earlier turn(s) trimmed for conciseness. Retaining recent active context.]"
+        )
+        recent_turns = non_sys[-max_recent:]
+        return sys_messages + [summary_msg] + recent_turns
+
+    return list(messages)
+
+def resolve_context_references(user_text: str, event_name: Optional[str]) -> str:
+    """
+    Pronoun / reference resolution for multi-turn short-term memory.
+    e.g. 'Set its budget to ₹50,000' or 'Now create tasks for it'
+    resolves 'it' / 'its' to the active event name.
+    """
+    if not event_name or not user_text:
+        return user_text
+
+    resolved = user_text
+    # Check for pronoun references: "for it", "its budget", "about it"
+    resolved = re.sub(r"(?i)\bfor\s+it\b", f"for {event_name}", resolved)
+    resolved = re.sub(r"(?i)\bits\s+", f"{event_name}'s ", resolved)
+    resolved = re.sub(r"(?i)\bto\s+it\b", f"to {event_name}", resolved)
+    return resolved
+
+def call_model(state: AgentState) -> Dict[str, Any]:
     messages = state["messages"]
-    
-    # Ensure system prompt is present
-    if not any(isinstance(m, SystemMessage) for m in messages):
-        messages = [SystemMessage(content=SUPERVISOR_PROMPT)] + list(messages)
-        
-    llm = _get_llm()
-    response = llm.invoke(messages)
-    
-    return {"messages": [response]}
+    user_id = state.get("user_id")
+    event_id = state.get("active_event_id")
+    event_name = state.get("active_event_name")
+    club_id = state.get("club_id")
+    iter_count = state.get("iteration_count", 0) or 0
+    max_iters = int(getattr(settings, "MAX_AGENT_ITERATIONS", 10))
+
+    # Guardrail 16 & Section 14: Agent Loop Protection
+    if iter_count >= max_iters:
+        err_msg = AIMessage(content="I couldn't safely complete the operation within the allowed number of steps.")
+        return {
+            "messages": [err_msg],
+            "error": {
+                "code": "AGENT_MAX_ITERATIONS",
+                "message": "Maximum agent reasoning iterations reached.",
+                "retryable": False,
+                "fallback_used": False,
+            },
+            "iteration_count": iter_count + 1
+        }
+
+    # 1. Pronoun and entity reference resolution across turns
+    last_human_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            last_human_idx = i
+            break
+
+    detected_event_name = event_name
+    if last_human_idx >= 0:
+        latest_text = messages[last_human_idx].content
+        # Detect if user is creating or referencing a named event:
+        ev_match = re.search(r"(?i)(?:create|plan|organize|schedule)\s+(?:an?\s+)?event\s+(?:called\s+|named\s+)?['\"]?([A-Za-z0-9_\s]+?)['\"]?(?:\.|$|,|\s+with)", latest_text)
+        if ev_match:
+            detected_event_name = ev_match.group(1).strip()
+
+        if detected_event_name:
+            resolved_text = resolve_context_references(latest_text, detected_event_name)
+            if resolved_text != latest_text:
+                # Update last human message with resolved reference
+                new_msg = HumanMessage(content=resolved_text)
+                messages = list(messages[:last_human_idx]) + [new_msg] + list(messages[last_human_idx+1:])
+
+    # 2. Context Trimming (Short-Term Memory bounded growth)
+    trimmed_messages = trim_messages_for_short_term_memory(messages, max_recent=10)
+
+    # 3. Long-Term Memory Injection (pre-turn scoped retrieval)
+    memory_context = ""
+    try:
+        from app.db.session import SessionLocal
+        from app.agents.memory_manager import MemoryManager
+        db = SessionLocal()
+        try:
+            query_str = messages[last_human_idx].content if last_human_idx >= 0 else ""
+            if query_str:
+                memory_context = MemoryManager.get_scoped_memory_context(
+                    db=db,
+                    query=query_str,
+                    user_id=user_id,
+                    club_id=club_id,
+                    event_id=event_id,
+                    top_k=3
+                )
+        finally:
+            db.close()
+    except Exception:
+        # Section 13: Memory retrieval failure does NOT crash the agent
+        memory_context = ""
+
+    # Ensure system prompt is present with long-term memory facts if available
+    sys_prompt = SUPERVISOR_PROMPT
+    if memory_context:
+        sys_prompt += "\n" + memory_context
+
+    if not any(isinstance(m, SystemMessage) for m in trimmed_messages):
+        trimmed_messages = [SystemMessage(content=sys_prompt)] + list(trimmed_messages)
+    else:
+        # Update existing system message
+        for i, m in enumerate(trimmed_messages):
+            if isinstance(m, SystemMessage):
+                trimmed_messages[i] = SystemMessage(content=sys_prompt)
+                break
+
+    # 4. Centralized LLM Service Invocation
+    try:
+        llm_resp = llm_service.invoke(
+            prompt=trimmed_messages,
+            tools=tools,
+            correlation_id=state.get("thread_id"),
+            user_id=user_id,
+            event_id=event_id,
+        )
+        response = llm_resp.to_chat_message()
+        fallback_used = llm_resp.fallback_used
+        error_info = None
+    except Exception as exc:
+        classified = classify_exception(exc)
+        response = AIMessage(content=classified.user_message)
+        fallback_used = False
+        error_info = {
+            "code": classified.code,
+            "message": classified.user_message,
+            "retryable": classified.retryable,
+            "fallback_used": False,
+        }
+
+    return {
+        "messages": [response],
+        "active_event_name": detected_event_name,
+        "fallback_used": fallback_used,
+        "error": error_info,
+        "iteration_count": iter_count + 1
+    }
 
 def should_continue(state: AgentState) -> Literal["tools", "__end__"]:
+    # Stop immediately if an unrecoverable error occurred
+    if state.get("error"):
+        return "__end__"
+
+    iter_count = state.get("iteration_count", 0) or 0
+    max_iters = int(getattr(settings, "MAX_AGENT_ITERATIONS", 10))
+    if iter_count >= max_iters:
+        return "__end__"
+
     messages = state["messages"]
     last_message = messages[-1]
     
-    if last_message.tool_calls:
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
         return "tools"
     return "__end__"
 
 workflow = StateGraph(AgentState)
 
 workflow.add_node("agent", call_model)
-workflow.add_node("tools", tool_node)
+workflow.add_node("tools", safe_tool_node)
 
 workflow.add_edge(START, "agent")
 workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", "__end__": END})
 workflow.add_edge("tools", "agent")
 
-# Compile graph statically (stateless execution)
-compiled_graph = workflow.compile()
+from langgraph.checkpoint.memory import MemorySaver
+
+# Persistent checkpointer for thread memory persistence across conversational turns
+memory_checkpointer = MemorySaver()
+
+# Compile graph with memory checkpointer
+compiled_graph = workflow.compile(checkpointer=memory_checkpointer)
+
+def get_thread_config(thread_id: str, user_id: Optional[int] = None):
+    """Returns runtime execution config for thread checkpointer persistence."""
+    cfg = {"configurable": {"thread_id": str(thread_id)}}
+    if user_id is not None:
+        cfg["configurable"]["user_id"] = str(user_id)
+    return cfg

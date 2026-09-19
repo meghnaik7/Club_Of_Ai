@@ -59,13 +59,14 @@ def generate_announcement(
     audience_str = target_audience or "All Club Members and Students"
     highlights_str = ", ".join(key_highlights) if key_highlights else "hands-on activities, keynote speakers, and networking"
 
-    llm = get_llm()
-    if llm:
-        sys_msg = SystemMessage(content=(
+    try:
+        from app.ai.llm_service import llm_service
+        from app.ai.response_validator import ResponseValidator
+        sys_msg = (
             "You are a communications specialist for college club events. "
             "Generate an engaging, high-impact announcement draft using the provided live event details. "
             "Return JSON with two keys: 'title' (a catchy headline) and 'content' (the complete body of the announcement)."
-        ))
+        )
         prompt = (
             f"Event Title: {event.title}\n"
             f"Date & Time: {date_str}\n"
@@ -75,20 +76,19 @@ def generate_announcement(
             f"Tone: {tone}\n"
             f"Key Highlights: {highlights_str}\n"
         )
-        try:
-            res = llm.invoke([sys_msg, HumanMessage(content=prompt)]).content
-            if "{" in res and "}" in res:
-                json_data = json.loads(res[res.find("{"):res.rfind("}")+1])
-                return {
-                    "title": json_data.get("title", f"Exciting Update: {event.title}!"),
-                    "content": json_data.get("content", desc_str),
-                    "event_id": event.id,
-                    "event_title": event.title,
-                    "event_date": date_str,
-                    "venue": venue_str
-                }
-        except Exception as e:
-            logger.error(f"Error calling LLM for announcement generation: {e}")
+        res = llm_service.invoke(prompt=prompt, system_prompt=sys_msg).content
+        json_data = ResponseValidator.extract_json(res)
+        if isinstance(json_data, dict):
+            return {
+                "title": json_data.get("title", f"Exciting Update: {event.title}!"),
+                "content": json_data.get("content", desc_str),
+                "event_id": event.id,
+                "event_title": event.title,
+                "event_date": date_str,
+                "venue": venue_str
+            }
+    except Exception as e:
+        logger.info(f"Handled LLM failover in announcement generation: {e}")
 
     # Fallback high-quality template using live event info
     title = f"📢 Join Us for {event.title}!"
@@ -136,9 +136,10 @@ def generate_announcement_variants(
     venue_str = event.venue if event and event.venue else "Campus Hall"
     base_content = content or (event.description if event and event.description else "Join us for an exciting event!")
 
-    llm = get_llm()
-    if llm:
-        sys_msg = SystemMessage(content=(
+    try:
+        from app.ai.llm_service import llm_service
+        from app.ai.response_validator import ResponseValidator
+        sys_msg = (
             "You are a multi-channel social media and communications expert. "
             "Convert the provided announcement into 3 platform variants: WhatsApp, Email, and Instagram. "
             "Return JSON with format:\n"
@@ -147,29 +148,28 @@ def generate_announcement_variants(
             '  "email": {"subject": "string", "body": "full formatted email body"},\n'
             '  "instagram": {"caption": "engaging visual caption with emojis", "hashtags": ["#tag1", "#tag2"]}\n'
             "}"
-        ))
+        )
         user_prompt = (
             f"Event: {event_title}\n"
             f"Date: {date_str}\n"
             f"Venue: {venue_str}\n"
             f"Announcement text:\n{base_content}"
         )
-        try:
-            res = llm.invoke([sys_msg, HumanMessage(content=user_prompt)]).content
-            if "{" in res and "}" in res:
-                parsed = json.loads(res[res.find("{"):res.rfind("}")+1])
-                variants_result = {
-                    "announcement_id": announcement_id,
-                    "whatsapp": parsed.get("whatsapp", ""),
-                    "email": parsed.get("email", {"subject": f"Invitation: {event_title}", "body": base_content}),
-                    "instagram": parsed.get("instagram", {"caption": base_content, "hashtags": ["#ClubOfAI", f"#{event_title.replace(' ', '')}"]})
-                }
-                if announcement:
-                    announcement.variants = json.dumps(variants_result)
-                    db.commit()
-                return variants_result
-        except Exception as e:
-            logger.error(f"Error calling LLM for variants generation: {e}")
+        res = llm_service.invoke(prompt=user_prompt, system_prompt=sys_msg).content
+        parsed = ResponseValidator.extract_json(res)
+        if isinstance(parsed, dict):
+            variants_result = {
+                "announcement_id": announcement_id,
+                "whatsapp": parsed.get("whatsapp", ""),
+                "email": parsed.get("email", {"subject": f"Invitation: {event_title}", "body": base_content}),
+                "instagram": parsed.get("instagram", {"caption": base_content, "hashtags": ["#ClubOfAI", f"#{event_title.replace(' ', '')}"]})
+            }
+            if announcement:
+                announcement.variants = json.dumps(variants_result)
+                db.commit()
+            return variants_result
+    except Exception as e:
+        logger.info(f"Handled LLM failover in variants generation: {e}")
 
     # Fallback multi-channel formatting
     whatsapp_variant = (

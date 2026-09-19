@@ -5,6 +5,8 @@ from app.models.task import Task, TaskAssignment, TaskDependency, TaskComment
 from app.models.document import Document, DocumentChunk, DocumentCategory
 from app.models.meeting import Meeting, MeetingActionItem
 from app.models.risk import EventRisk
+from app.models.chat_history import RAGChatHistory
+from app.memory.models import Memory
 
 __all__ = [
     "User",
@@ -21,5 +23,7 @@ __all__ = [
     "DocumentCategory",
     "Meeting",
     "MeetingActionItem",
-    "EventRisk"
+    "EventRisk",
+    "RAGChatHistory",
+    "Memory",
 ]

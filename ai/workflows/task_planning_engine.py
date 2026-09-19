@@ -55,33 +55,31 @@ def generate_task_graph(
     """Generate tasks, subtasks, dependencies, phases, and suggested owners from an event brief."""
     base_date = _parse_date(event_date) or (datetime.utcnow() + timedelta(days=14))
     
-    # Check if LLM is available for custom generation
-    llm = get_llm()
-    if llm:
-        sys_msg = SystemMessage(content=(
+    # Check if centralized LLM is available for custom generation
+    try:
+        from app.ai.llm_service import llm_service
+        from app.ai.response_validator import ResponseValidator
+        sys_msg = (
             "You are an expert event planning AI. Given an event brief, generate a comprehensive, structured "
             "task graph with phases (PRE_EVENT, DAY_OF, POST_EVENT), tasks, subtasks, dependencies, estimated duration, "
             "and suggested skills. Return strict JSON format with key 'tasks'."
-        ))
-        user_msg = HumanMessage(content=(
+        )
+        user_msg = (
             f"Event Brief: {event_brief}\n"
             f"Event Target Date: {_format_date(base_date)}\n"
             f"Target Attendees: {target_attendees or 'Not specified'}\n"
-        ))
-        try:
-            res = llm.invoke([sys_msg, user_msg]).content
-            if "{" in res and "}" in res:
-                parsed = json.loads(res[res.find("{"):res.rfind("}")+1])
-                tasks = parsed.get("tasks", [])
-                if tasks:
-                    return {
-                        "event_brief": event_brief,
-                        "base_event_date": _format_date(base_date),
-                        "total_tasks": len(tasks),
-                        "tasks": tasks
-                    }
-        except Exception as e:
-            logger.error(f"Error calling LLM for task graph generation: {e}")
+        )
+        res = llm_service.invoke(prompt=user_msg, system_prompt=sys_msg).content
+        parsed = ResponseValidator.extract_json(res)
+        if isinstance(parsed, dict) and parsed.get("tasks"):
+            return {
+                "event_brief": event_brief,
+                "base_event_date": _format_date(base_date),
+                "total_tasks": len(parsed["tasks"]),
+                "tasks": parsed["tasks"]
+            }
+    except Exception as e:
+        logger.info(f"Handled LLM failover in task graph generation: {e}")
 
     # Robust algorithmic fallback creating a complete, production-ready event task graph
     pre_start = base_date - timedelta(days=14)
@@ -190,30 +188,30 @@ def split_task(
     total_duration_hours: Optional[int] = None
 ) -> Dict[str, Any]:
     """Break a large task into smaller executable subtasks with dependencies."""
-    llm = get_llm()
-    if llm:
-        sys_msg = SystemMessage(content=(
+    try:
+        from app.ai.llm_service import llm_service
+        from app.ai.response_validator import ResponseValidator
+        sys_msg = (
             "You are a project management decomposition specialist. Break the specified task into "
             "executable, sequential subtasks with duration and suggested skills. Return JSON with key 'subtasks'."
-        ))
+        )
         prompt = (
             f"Task: {task_title}\n"
             f"Description: {task_description or 'No extra description'}\n"
             f"Desired number of subtasks: {num_subtasks}\n"
             f"Total hours: {total_duration_hours or 6}\n"
         )
-        try:
-            res = llm.invoke([sys_msg, HumanMessage(content=prompt)]).content
-            if "{" in res and "}" in res:
-                parsed = json.loads(res[res.find("{"):res.rfind("}")+1])
-                return {
-                    "parent_task_id": task_id,
-                    "parent_task_title": task_title,
-                    "subtasks_count": len(parsed.get("subtasks", [])),
-                    "subtasks": parsed.get("subtasks", [])
-                }
-        except Exception as e:
-            logger.error(f"Error calling LLM in split_task: {e}")
+        res = llm_service.invoke(prompt=prompt, system_prompt=sys_msg).content
+        parsed = ResponseValidator.extract_json(res)
+        if isinstance(parsed, dict) and parsed.get("subtasks"):
+            return {
+                "parent_task_id": task_id,
+                "parent_task_title": task_title,
+                "subtasks_count": len(parsed.get("subtasks", [])),
+                "subtasks": parsed.get("subtasks", [])
+            }
+    except Exception as e:
+        logger.info(f"Handled LLM failover in split_task: {e}")
 
     # Algorithmic decomposition
     dur_per_subtask = max(1, (total_duration_hours or 6) // num_subtasks)
