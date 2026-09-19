@@ -3,6 +3,7 @@ dist/
 build/
 .env
 .env.example
+!docker/prod/.env.example
 venv/
 __pycache__/
 *.pyc
