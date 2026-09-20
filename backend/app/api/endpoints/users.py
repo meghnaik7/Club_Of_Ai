@@ -1,7 +1,7 @@
 from typing import Any, List, Optional, Dict
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, ConfigDict
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 
@@ -26,8 +26,7 @@ class ProfileUpdateRequest(BaseModel):
     skills: Optional[Any] = None  # Accepts list of strings or comma-separated string
     availability: Optional[str] = None
 
-    class Config:
-        extra = "allow"  # To catch and reject forbidden fields manually with custom error
+    model_config = ConfigDict(extra="allow")  # To catch and reject forbidden fields manually with custom error
 
 
 def get_load_status(active_task_count: int) -> str:

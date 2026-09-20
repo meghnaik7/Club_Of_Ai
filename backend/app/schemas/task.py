@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 from app.models.task import TaskStatus, TaskPriority, TaskPhase
@@ -17,8 +17,7 @@ class TaskCommentInDBBase(TaskCommentBase):
     user_id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TaskComment(TaskCommentInDBBase):
     pass
@@ -34,8 +33,7 @@ class TaskAssignmentInDBBase(TaskAssignmentBase):
     id: int
     task_id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TaskAssignment(TaskAssignmentInDBBase):
     pass
@@ -51,8 +49,7 @@ class TaskDependencyInDBBase(TaskDependencyBase):
     id: int
     dependent_task_id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TaskDependency(TaskDependencyInDBBase):
     pass
@@ -89,8 +86,7 @@ class TaskInDBBase(TaskBase):
     event_id: int
     created_by: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class Task(TaskInDBBase):
     assignments: List[TaskAssignment] = []

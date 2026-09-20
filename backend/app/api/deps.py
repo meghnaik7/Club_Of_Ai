@@ -60,7 +60,7 @@ def get_current_user_optional(
     db: Session = Depends(get_db), token: Optional[str] = Depends(reusable_oauth2)
 ) -> Optional[User]:
     if not token:
-        return db.query(User).first()
+        return None
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
@@ -74,6 +74,6 @@ def get_current_user_optional(
                 user = db.query(User).filter(User.email == str(sub_val)).first()
             if user:
                 return user
-        return db.query(User).first()
+        return None
     except Exception:
-        return db.query(User).first()
+        return None

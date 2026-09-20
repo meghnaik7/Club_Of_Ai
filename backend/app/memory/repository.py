@@ -34,7 +34,7 @@ class MemoryRepository:
 
     @staticmethod
     def update(db: Session, db_obj: Memory, obj_in: MemoryUpdate, embedding: Optional[List[float]] = None) -> Memory:
-        update_data = obj_in.dict(exclude_unset=True)
+        update_data = obj_in.model_dump(exclude_unset=True) if hasattr(obj_in, 'model_dump') else obj_in.dict(exclude_unset=True)
         for field, value in update_data.items():
             setattr(db_obj, field, value)
         if embedding is not None:

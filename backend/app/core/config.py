@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-super-secret-key-change-in-production")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
+    # CORS Allowed Origins (comma-separated or list)
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000")
+    
     # Volunteer Load Thresholds
     VOLUNTEER_LOAD_LOW: int = 3
     VOLUNTEER_LOAD_MEDIUM: int = 6
@@ -92,15 +95,6 @@ class Settings(BaseSettings):
     RAG_TOP_K: int = 5
     SIMILARITY_THRESHOLD: float = 0.55
 
-    # LangSmith / Observability Settings
-    LANGCHAIN_TRACING_V2: str = os.getenv("LANGCHAIN_TRACING_V2", "true")
-    LANGCHAIN_API_KEY: str = os.getenv("LANGCHAIN_API_KEY", "")
-    LANGCHAIN_PROJECT: str = os.getenv("LANGCHAIN_PROJECT", "ClubOps-AI")
-    LANGCHAIN_ENDPOINT: str = os.getenv("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
-    LANGSMITH_TRACING: str = os.getenv("LANGSMITH_TRACING", "true")
-    LANGSMITH_API_KEY: str = os.getenv("LANGSMITH_API_KEY", "")
-    LANGSMITH_PROJECT: str = os.getenv("LANGSMITH_PROJECT", "ClubOps-AI")
-    LANGSMITH_ENDPOINT: str = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
 
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     ALLOW_SQLITE_FALLBACK: bool = os.getenv("ALLOW_SQLITE_FALLBACK", "true" if os.getenv("ENVIRONMENT", "development") != "production" else "false").lower() in ("true", "1")
@@ -129,7 +123,19 @@ class Settings(BaseSettings):
     VOICE_MAX_AUDIO_SIZE_MB: int = int(os.getenv("VOICE_MAX_AUDIO_SIZE_MB", "25"))
     VOICE_TIMEOUT_SECONDS: float = float(os.getenv("VOICE_TIMEOUT_SECONDS", "30.0"))
 
+    @property
+    def cors_origins_list(self) -> list[str]:
+        raw = getattr(self, "CORS_ORIGINS", None) or os.getenv("CORS_ORIGINS", "")
+        if isinstance(raw, list):
+            return raw
+        origins = [o.strip() for o in str(raw).split(",") if o.strip()]
+        return origins or ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"]
+
     def model_post_init(self, __context: object) -> None:
+        # Validate production secret key
+        if self.ENVIRONMENT == "production":
+            if not self.SECRET_KEY or self.SECRET_KEY == "your-super-secret-key-change-in-production":
+                raise ValueError("CRITICAL: Production deployment requires a secure, non-default SECRET_KEY environment variable.")
         env_url = os.getenv("DATABASE_URL") or self.DATABASE_URL
         if env_url and "${" not in env_url:
             # Normalize legacy postgres:// to postgresql:// for SQLAlchemy compatibility

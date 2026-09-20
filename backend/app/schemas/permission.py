@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class PermissionBase(BaseModel):
     key: str
@@ -8,8 +8,7 @@ class PermissionBase(BaseModel):
 class Permission(PermissionBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserPermissionCreate(BaseModel):
     permission_key: str
@@ -26,8 +25,7 @@ class UserPermissionResponse(BaseModel):
     scope_id: Optional[int] = None
     effect: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserTeamSummary(BaseModel):
     id: int

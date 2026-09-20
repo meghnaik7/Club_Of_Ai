@@ -103,17 +103,33 @@ except ImportError:
         def get_password_hash(password: str) -> str:
             return pwd_context.hash(password)
     except ImportError:
-        def verify_password(plain_password: str, hashed_password: str) -> bool:
-            if ":" in hashed_password:
-                salt, h = hashed_password.split(":", 1)
-                return hmac.compare_digest(hashlib.sha256((salt + plain_password).encode()).hexdigest(), h)
-            if hashed_password.startswith("$2"):
-                # Fallback for dev/test when bcrypt binary is not present
-                if plain_password == "password123":
-                    return True
-            return plain_password == hashed_password
+        try:
+            import bcrypt
+            def verify_password(plain_password: str, hashed_password: str) -> bool:
+                if not plain_password or not hashed_password:
+                    return False
+                if hashed_password.startswith(("$2a$", "$2b$", "$2y$")):
+                    try:
+                        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+                    except Exception:
+                        return False
+                if ":" in hashed_password:
+                    salt, h = hashed_password.split(":", 1)
+                    return hmac.compare_digest(hashlib.sha256((salt + plain_password).encode()).hexdigest(), h)
+                return False
 
-        def get_password_hash(password: str) -> str:
-            salt = os.urandom(8).hex()
-            h = hashlib.sha256((salt + password).encode()).hexdigest()
-            return f"{salt}:{h}"
+            def get_password_hash(password: str) -> str:
+                return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        except ImportError:
+            def verify_password(plain_password: str, hashed_password: str) -> bool:
+                if not plain_password or not hashed_password:
+                    return False
+                if ":" in hashed_password:
+                    salt, h = hashed_password.split(":", 1)
+                    return hmac.compare_digest(hashlib.sha256((salt + plain_password).encode()).hexdigest(), h)
+                return False
+
+            def get_password_hash(password: str) -> str:
+                salt = os.urandom(8).hex()
+                h = hashlib.sha256((salt + password).encode()).hexdigest()
+                return f"{salt}:{h}"

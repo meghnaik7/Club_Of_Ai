@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class EscalationLevelEnum(str):
     NONE = "NONE"
@@ -32,8 +32,7 @@ class EscalationResult(BaseModel):
     resolved_at: Optional[datetime] = None
     resolution_note: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class EscalationConfig(BaseModel):
     HOURS_BEFORE_DUE: int = Field(default=24, description="Hours before due date to flag high/critical tasks (Rule 1)")

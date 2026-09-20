@@ -31,6 +31,58 @@ async def lifespan(app: FastAPI):
         # Gracefully close connection pool on shutdown
         checkpointer_manager.close_checkpointer_pool()
 
+import time
+from collections import defaultdict
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+class RateLimiterMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app):
+        super().__init__(app)
+        self.requests = defaultdict(list)
+        self.limits = [
+            ("/api/auth", 20, 60),
+            ("/api/v1/auth", 20, 60),
+            ("/api/v1/voice", 60, 60),
+            ("/api/voice", 60, 60),
+            ("/api/v1/ai", 60, 60),
+            ("/api/ai", 60, 60),
+        ]
+        self.default_limit = (300, 60)
+
+    async def dispatch(self, request: Request, call_next):
+        # Allow preflight OPTIONS, health probes, root, and automated tests
+        if request.method == "OPTIONS" or request.url.path in ("/api/health", "/"):
+            return await call_next(request)
+        if getattr(settings, "ENVIRONMENT", "") == "test" or request.headers.get("X-Test-Client"):
+            return await call_next(request)
+
+        client_ip = request.client.host if request.client else "unknown"
+        path = request.url.path
+        now = time.time()
+
+        max_reqs, window = self.default_limit
+        for prefix, m, w in self.limits:
+            if path.startswith(prefix):
+                max_reqs, window = m, w
+                break
+
+        key = f"{client_ip}:{path}"
+        timestamps = self.requests[key]
+        self.requests[key] = [t for t in timestamps if now - t < window]
+
+        if len(self.requests[key]) >= max_reqs:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please try again later.", "code": "RATE_LIMIT_EXCEEDED"},
+                headers={"Retry-After": str(int(window))}
+            )
+
+        self.requests[key].append(now)
+        return await call_next(request)
+
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="AI-powered college club event operations platform",
@@ -39,9 +91,10 @@ app = FastAPI(
 )
 
 # Set up CORS
+app.add_middleware(RateLimiterMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this to frontend URL
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

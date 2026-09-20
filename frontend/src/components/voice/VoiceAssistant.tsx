@@ -6,6 +6,7 @@ import VoiceWaveform from './VoiceWaveform';
 import VoiceTranscript from './VoiceTranscript';
 import VoiceResponse from './VoiceResponse';
 import VoiceService from '../../services/voice.service';
+import AIService from '../../services/ai.service';
 import type { VoiceChatResponse, VoiceRAGResponse } from '../../services/voice.service';
 
 interface VoiceAssistantProps {
@@ -214,7 +215,6 @@ export default function VoiceAssistant({
     setStatusState('processing');
     try {
       // Use existing text confirmation via speech synthesize or execute command
-      const AIService = (await import('../../services/ai.service')).default;
       const res = await AIService.confirmProposal(proposalId, activeEventId);
       
       // Synthesize confirmation spoken response
@@ -244,7 +244,6 @@ export default function VoiceAssistant({
     setIsProcessing(true);
     setStatusState('processing');
     try {
-      const AIService = (await import('../../services/ai.service')).default;
       await AIService.rejectProposal(proposalId, activeEventId);
       setLastTurn((prev) =>
         prev
