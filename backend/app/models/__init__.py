@@ -12,6 +12,7 @@ from app.models.chat_history import RAGChatHistory
 from app.memory.models import Memory
 from app.models.escalation import TaskEscalation, EscalationLevel, EscalationStatus
 from app.models.feedback import AIFeedback
+from app.models.notification import Notification, NotificationType, NotificationStatus, NotificationSeverity, EscalationLevelRole
 
 __all__ = [
     "User",
@@ -55,4 +56,9 @@ __all__ = [
     "EscalationLevel",
     "EscalationStatus",
     "AIFeedback",
+    "Notification",
+    "NotificationType",
+    "NotificationStatus",
+    "NotificationSeverity",
+    "EscalationLevelRole",
 ]

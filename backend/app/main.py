@@ -16,6 +16,7 @@ from app.core.database import init_db
 from app.core.observability import init_observability, is_observability_enabled
 from app.api.api import api_router
 from ai.agents.checkpointer import checkpointer_manager
+from app.scheduler import start_scheduler, stop_scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,9 +26,13 @@ async def lifespan(app: FastAPI):
     init_observability()
     # Initialize cloud checkpointer (creates tables in PostgreSQL if available)
     checkpointer_manager.get_checkpointer()
+    # Start periodic background scheduler (overdue task cron job)
+    start_scheduler()
     try:
         yield
     finally:
+        # Gracefully stop background scheduler
+        stop_scheduler()
         # Gracefully close connection pool on shutdown
         checkpointer_manager.close_checkpointer_pool()
 

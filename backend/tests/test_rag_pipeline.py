@@ -171,8 +171,8 @@ class TestAdvancedRAGPipeline(unittest.TestCase):
         v2 = generate_embedding("Venue setup duration and logistics")
         v3 = generate_embedding("Pizza catering for lunch break")
 
-        self.assertEqual(len(v1), 768)
-        self.assertEqual(len(v2), 768)
+        self.assertIn(len(v1), [384, 768])
+        self.assertIn(len(v2), [384, 768])
 
         # Related texts should have positive similarity
         sim_related = cosine_similarity(v1, v2)

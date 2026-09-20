@@ -59,3 +59,8 @@ try:
 except ImportError:
     pass
 
+try:
+    from app.models.notification import Notification
+except ImportError:
+    pass
+

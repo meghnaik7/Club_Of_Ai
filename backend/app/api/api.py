@@ -12,6 +12,7 @@ from app.api.endpoints import (
     memory_routes,
     escalation,
     admin_org,
+    admin_scheduler,
     users,
     feedback,
 )
@@ -21,6 +22,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(admin_org.router, prefix="/admin", tags=["admin_org"])
+api_router.include_router(admin_scheduler.router, prefix="/admin", tags=["admin_scheduler"])
 api_router.include_router(feedback.router, prefix="/ai/feedback", tags=["feedback"])
 api_router.include_router(ai_commands.router, prefix="/ai", tags=["ai_commands"])
 api_router.include_router(voice_router, prefix="/voice", tags=["voice"])

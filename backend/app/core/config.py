@@ -37,7 +37,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "openai/gpt-4o-mini")
-    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "gemini-embedding")
+    EMBEDDING_PROVIDER: str = os.getenv("EMBEDDING_PROVIDER", "huggingface")
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+    HUGGINGFACE_EMBEDDING_MODEL: str = os.getenv("HUGGINGFACE_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "openai/gpt-4o-mini")
 
     # OpenRouter Settings
@@ -128,6 +130,13 @@ class Settings(BaseSettings):
     SARVAM_GUJARATI_VOICE: str = os.getenv("SARVAM_GUJARATI_VOICE", "shubh")
     VOICE_MAX_AUDIO_SIZE_MB: int = int(os.getenv("VOICE_MAX_AUDIO_SIZE_MB", "25"))
     VOICE_TIMEOUT_SECONDS: float = float(os.getenv("VOICE_TIMEOUT_SECONDS", "30.0"))
+
+    # Scheduler & Hierarchical Task-Delay Notification Settings
+    SCHEDULER_ENABLED: bool = os.getenv("SCHEDULER_ENABLED", "true").lower() in ("true", "1")
+    TASK_OVERDUE_CHECK_INTERVAL_MINUTES: int = int(os.getenv("TASK_OVERDUE_CHECK_INTERVAL_MINUTES", "240"))
+    SCHEDULER_TIMEZONE: str = os.getenv("SCHEDULER_TIMEZONE", "Asia/Kolkata")
+    TASK_OVERDUE_ESCALATION_ENABLED: bool = os.getenv("TASK_OVERDUE_ESCALATION_ENABLED", "true").lower() in ("true", "1")
+    TASK_OVERDUE_ESCALATION_MINUTES: int = int(os.getenv("TASK_OVERDUE_ESCALATION_MINUTES", "60"))
 
     def model_post_init(self, __context: object) -> None:
         env_url = os.getenv("DATABASE_URL") or self.DATABASE_URL
