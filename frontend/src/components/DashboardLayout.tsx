@@ -5,7 +5,6 @@ import {
   CheckSquare, Sparkles, Menu, X, BookOpen, Briefcase, ShieldCheck, Network, Mic, User as UserIcon, Bot
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import AIChatPanel from './AIChatPanel';
 import VoiceAssistant from './voice/VoiceAssistant';
 
 interface DashboardLayoutProps {
@@ -17,7 +16,6 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children, title, activeEventId }: DashboardLayoutProps) {
   const { user, logout, isAdmin, isClubHead, isClubLeader, isSubTeamLead, isVolunteer, userTeams } = useAuth();
   const location = useLocation();
-  const [aiOpen, setAiOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -86,15 +84,6 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
 
           <div className="pt-3">
             <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Intelligence</p>
-            {/* AI Assistant Button */}
-            <button
-              onClick={() => setAiOpen(true)}
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 bg-gradient-to-r from-violet-600/10 to-indigo-600/10 hover:from-violet-600/20 hover:to-indigo-600/20 text-violet-300 hover:text-white border border-violet-500/20 hover:border-violet-500/40 group"
-            >
-              <Sparkles className="w-4 h-4 text-violet-400 group-hover:scale-110 transition-transform" />
-              <span className="font-semibold text-sm">AI Assistant</span>
-              <span className="ml-auto text-[10px] bg-violet-500/20 text-violet-300 border border-violet-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Active</span>
-            </button>
 
             {/* Voice AI Button */}
             <button
@@ -177,13 +166,6 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
                 );
               })}
 
-              <button
-                onClick={() => { setMobileMenuOpen(false); setAiOpen(true); }}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium bg-violet-600/15 text-violet-300 border border-violet-500/30 mt-4"
-              >
-                <Sparkles className="w-4 h-4 text-violet-400" />
-                <span>AI Assistant</span>
-              </button>
 
               <button
                 onClick={() => { setMobileMenuOpen(false); setVoiceOpen(true); }}
@@ -254,15 +236,15 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
               <span className="hidden sm:inline">Voice Mode</span>
             </button>
 
-            {/* AI Assistant Quick Launcher */}
-            <button
-              onClick={() => setAiOpen(true)}
+            {/* Agentic AI Command Center Quick Link */}
+            <Link
+              to="/agentic-ai"
               className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:shadow-indigo-500/30 hover:scale-[1.02] active:scale-[0.98]"
             >
-              <Sparkles className="w-3.5 h-3.5 text-violet-200" />
-              <span className="hidden sm:inline">Ask AI Agent</span>
+              <Bot className="w-3.5 h-3.5 text-violet-200" />
+              <span className="hidden sm:inline">Agentic AI</span>
               <span className="sm:hidden">AI</span>
-            </button>
+            </Link>
 
             {/* User Profile Quick Button */}
             <Link
@@ -281,18 +263,13 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
         </div>
       </main>
 
-      {/* AI Chat Panel */}
-      <AIChatPanel
-        isOpen={aiOpen}
-        onClose={() => setAiOpen(false)}
-        activeEventId={activeEventId}
-      />
 
-      {/* Standalone Voice Assistant Modal */}
+      {/* Standalone Voice Assistant Modal (RAG mode) */}
       <VoiceAssistant
         isOpen={voiceOpen}
         onClose={() => setVoiceOpen(false)}
         activeEventId={activeEventId}
+        mode="rag"
       />
     </div>
   );

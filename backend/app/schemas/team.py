@@ -1,5 +1,5 @@
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 class TeamBase(BaseModel):
@@ -21,8 +21,7 @@ class TeamMemberResponse(BaseModel):
     role: str
     joined_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class Team(TeamBase):
     id: int
@@ -33,8 +32,7 @@ class Team(TeamBase):
     leader: Optional[TeamMemberResponse] = None
     members: Optional[List[TeamMemberResponse]] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TeamMemberAdd(BaseModel):
     user_id: int
@@ -55,5 +53,4 @@ class Club(ClubBase):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

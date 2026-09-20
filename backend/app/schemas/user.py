@@ -9,7 +9,7 @@ except ImportError:
 
 # Shared properties
 class UserBase(BaseModel):
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     full_name: Optional[str] = None
     role: Optional[UserRole] = None
     is_active: Optional[bool] = True

@@ -6,14 +6,16 @@ import VoiceWaveform from './VoiceWaveform';
 import VoiceTranscript from './VoiceTranscript';
 import VoiceResponse from './VoiceResponse';
 import VoiceService from '../../services/voice.service';
-import type { VoiceChatResponse } from '../../services/voice.service';
+import AIService from '../../services/ai.service';
+import type { VoiceChatResponse, VoiceRAGResponse } from '../../services/voice.service';
 
 interface VoiceAssistantProps {
   isOpen: boolean;
   onClose: () => void;
   activeEventId?: number;
   initialThreadId?: string;
-  onTurnComplete?: (res: VoiceChatResponse) => void;
+  onTurnComplete?: (res: VoiceChatResponse | VoiceRAGResponse) => void;
+  mode?: 'agentic' | 'rag';
 }
 
 export default function VoiceAssistant({
@@ -22,6 +24,7 @@ export default function VoiceAssistant({
   activeEventId,
   initialThreadId,
   onTurnComplete,
+  mode = 'rag',
 }: VoiceAssistantProps) {
   const [selectedLanguage, setSelectedLanguage] = useState<string>('auto');
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -145,20 +148,48 @@ export default function VoiceAssistant({
     setErrorMessage(null);
 
     try {
-      const response = await VoiceService.voiceChat(audioBlob, {
-        threadId,
-        eventId: activeEventId,
-        language: selectedLanguage,
-      });
+      if (mode === 'rag') {
+        const response = await VoiceService.voiceRAGQuery(audioBlob, {
+          language: selectedLanguage,
+        });
 
-      setLastTurn(response);
-      if (response.thread_id) {
-        setThreadId(response.thread_id);
-      }
-      setStatusState(response.audio_url ? 'playing' : 'idle');
+        const formattedCitations = response.citations?.map((c) => ({
+          title: c.source,
+          source: `${c.source}${c.page ? ` (p. ${c.page})` : ''}${c.section ? ` [${c.section}]` : ''}`,
+        }));
 
-      if (onTurnComplete) {
-        onTurnComplete(response);
+        setLastTurn({
+          transcript: response.transcript,
+          response_text: response.answer,
+          language: response.language || selectedLanguage,
+          audio_url: response.audio_url,
+          confidence: response.confidence,
+          details: { citations: formattedCitations },
+          proposals: [],
+          status: 'success',
+        });
+
+        setStatusState(response.audio_url ? 'playing' : 'idle');
+
+        if (onTurnComplete) {
+          onTurnComplete(response);
+        }
+      } else {
+        const response = await VoiceService.voiceChat(audioBlob, {
+          threadId,
+          eventId: activeEventId,
+          language: selectedLanguage,
+        });
+
+        setLastTurn(response);
+        if (response.thread_id) {
+          setThreadId(response.thread_id);
+        }
+        setStatusState(response.audio_url ? 'playing' : 'idle');
+
+        if (onTurnComplete) {
+          onTurnComplete(response);
+        }
       }
     } catch (err: any) {
       console.error('Voice chat error:', err);
@@ -178,14 +209,12 @@ export default function VoiceAssistant({
     }
   };
 
-
   const handleConfirmProposal = async (proposalId: number) => {
     // Send confirmation to backend
     setIsProcessing(true);
     setStatusState('processing');
     try {
       // Use existing text confirmation via speech synthesize or execute command
-      const AIService = (await import('../../services/ai.service')).default;
       const res = await AIService.confirmProposal(proposalId, activeEventId);
       
       // Synthesize confirmation spoken response
@@ -215,7 +244,6 @@ export default function VoiceAssistant({
     setIsProcessing(true);
     setStatusState('processing');
     try {
-      const AIService = (await import('../../services/ai.service')).default;
       await AIService.rejectProposal(proposalId, activeEventId);
       setLastTurn((prev) =>
         prev
@@ -275,7 +303,7 @@ export default function VoiceAssistant({
             </div>
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                ClubOps AI Voice
+                {mode === 'rag' ? 'Club Brain Voice RAG' : 'ClubOps AI Voice'}
                 <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
                   Sarvam AI
                 </span>

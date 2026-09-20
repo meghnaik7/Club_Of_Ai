@@ -46,6 +46,30 @@ export interface LanguageListResponse {
 export const LanguageListResponse = {} as any;
 
 
+
+export interface VoiceRAGResponse {
+  transcript: string;
+  answer: string;
+  language: string;
+  confidence: number;
+  citations: Array<{
+    source?: string;
+    document_id?: string;
+    filename?: string;
+    category?: string;
+    page?: number;
+    section?: string;
+    chunk_index?: number;
+    snippet?: string;
+    relevance_score?: number;
+  }>;
+  audio_base64?: string;
+  content_type?: string;
+  status: string;
+}
+export const VoiceRAGResponse = {} as any;
+
+
 const VoiceService = {
   getLanguages: async (): Promise<LanguageListResponse> => {
     const res = await api.get<LanguageListResponse>('/voice/languages');
@@ -100,6 +124,38 @@ const VoiceService = {
     }
 
     const res = await api.post<VoiceChatResponse>('/voice/chat', formData);
+    return res.data;
+  },
+
+
+  voiceRAGQuery: async (
+    audioBlob: Blob,
+    options?: {
+      eventId?: number;
+      category?: string;
+      language?: string;
+      voice?: string;
+      filename?: string;
+    }
+  ): Promise<VoiceRAGResponse> => {
+    const formData = new FormData();
+    const fname = options?.filename || (audioBlob.type.includes('webm') ? 'recording.webm' : 'recording.wav');
+    formData.append('audio', audioBlob, fname);
+
+    if (options?.eventId !== undefined && options?.eventId !== null) {
+      formData.append('event_id', String(options.eventId));
+    }
+    if (options?.category) {
+      formData.append('category', options.category);
+    }
+    if (options?.language && options.language !== 'auto') {
+      formData.append('language', options.language);
+    }
+    if (options?.voice) {
+      formData.append('voice', options.voice);
+    }
+
+    const res = await api.post<VoiceRAGResponse>('/voice/rag-query', formData);
     return res.data;
   },
 
