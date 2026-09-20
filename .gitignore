@@ -3,8 +3,17 @@ dist/
 build/
 .env
 .env.example
+!docker/prod/.env.example
 venv/
+.venv/
+backend/venv/
 __pycache__/
 *.pyc
 .pytest_cache/
 .DS_Store
+.vscode/
+*.db
+*.sqlite
+*.sqlite3
+backend/uploads/*
+!backend/uploads/.gitkeep

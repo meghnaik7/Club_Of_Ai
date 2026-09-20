@@ -27,8 +27,20 @@ def list_volunteers(
     limit: int = 100,
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
-    """Retrieve all volunteers with computed load."""
-    volunteers = db.query(Volunteer).offset(skip).limit(limit).all()
+    from app.services.authz import AuthorizationService
+    q = db.query(Volunteer)
+    if not AuthorizationService.is_admin(current_user):
+        user_club = AuthorizationService.get_user_club_id(db, current_user)
+        if AuthorizationService.is_club_head(db, current_user, club_id=user_club):
+            q = q.filter((Volunteer.club_id == user_club) | (Volunteer.user.has(club_id=user_club)))
+        elif AuthorizationService.is_subteam_lead(db, current_user):
+            user_subteam = AuthorizationService.get_user_subteam_id(db, current_user)
+            q = q.filter((Volunteer.subteam_id == user_subteam) | (Volunteer.user.has(subteam_id=user_subteam)))
+        else:
+            q = q.filter(Volunteer.user_id == current_user.id)
+
+    volunteers = q.offset(skip).limit(limit).all()
+
     
     result = []
     for vol in volunteers:
@@ -60,16 +72,30 @@ def get_volunteer(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
-    """Get a specific volunteer profile."""
+    """Get a specific volunteer profile with club/subteam scoping."""
+    from app.services.authz import AuthorizationService
     vol = db.query(Volunteer).filter(Volunteer.id == volunteer_id).first()
     if not vol:
         raise HTTPException(status_code=404, detail="Volunteer not found")
-        
+
+    if not AuthorizationService.is_admin(current_user):
+        user_club = AuthorizationService.get_user_club_id(db, current_user)
+        vol_club = vol.club_id or (vol.user.club_id if vol.user else None)
+        if vol.user_id != current_user.id:
+            if vol_club and user_club and vol_club != user_club:
+                raise HTTPException(status_code=403, detail="Permission denied: Volunteer belongs to another club")
+            if AuthorizationService.is_subteam_lead(db, current_user):
+                user_subteam = AuthorizationService.get_user_subteam_id(db, current_user)
+                vol_subteam = vol.subteam_id or (vol.user.subteam_id if vol.user else None)
+                vol_team_roles = AuthorizationService.get_user_team_roles(db, vol.user) if vol.user else {}
+                if user_subteam and vol_subteam != user_subteam and user_subteam not in vol_team_roles:
+                    raise HTTPException(status_code=403, detail="Permission denied: Volunteer belongs to another subteam")
+
     active_count = db.query(TaskAssignment).join(Task).filter(
         TaskAssignment.volunteer_id == vol.id,
         Task.status.in_([TaskStatus.TODO, TaskStatus.IN_PROGRESS])
     ).count()
-    
+
     vol_data = schemas.VolunteerResponse.model_validate(vol)
     vol_data.active_task_count = active_count
     vol_data.load_indicator = get_load_indicator(active_count)
@@ -87,15 +113,22 @@ def get_volunteer_tasks(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
-    """Get tasks assigned to a specific volunteer."""
+    """Get tasks assigned to a specific volunteer with authorization verification."""
+    from app.services.authz import AuthorizationService
     vol = db.query(Volunteer).filter(Volunteer.id == volunteer_id).first()
     if not vol:
         raise HTTPException(status_code=404, detail="Volunteer not found")
-        
+
+    if not AuthorizationService.is_admin(current_user):
+        user_club = AuthorizationService.get_user_club_id(db, current_user)
+        vol_club = vol.club_id or (vol.user.club_id if vol.user else None)
+        if vol.user_id != current_user.id:
+            if vol_club and user_club and vol_club != user_club:
+                raise HTTPException(status_code=403, detail="Permission denied: Volunteer belongs to another club")
+
     assignments = db.query(TaskAssignment).filter(TaskAssignment.volunteer_id == vol.id).all()
     tasks = [a.task for a in assignments if a.task]
-    
-    # We return raw dicts for now since TaskSchema isn't fully built out in Phase 3
+
     return [
         {
             "id": t.id,
@@ -113,17 +146,19 @@ def create_volunteer(
     volunteer_in: schemas.VolunteerCreate,
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
-    """Create a volunteer profile."""
-    # Check if user exists
+    """Create a volunteer profile (Admin, Club Head, or SubTeam Lead only)."""
+    from app.services.authz import AuthorizationService
+    if not (AuthorizationService.is_admin(current_user) or AuthorizationService.is_club_head(db, current_user) or AuthorizationService.is_subteam_lead(db, current_user)):
+        raise HTTPException(status_code=403, detail="Permission denied: Cannot create volunteer profiles")
+
     user = db.query(User).filter(User.id == volunteer_in.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-        
-    # Check if volunteer profile already exists
+
     existing = db.query(Volunteer).filter(Volunteer.user_id == volunteer_in.user_id).first()
     if existing:
         raise HTTPException(status_code=400, detail="Volunteer profile already exists for this user")
-        
+
     volunteer = Volunteer(
         user_id=volunteer_in.user_id,
         skills=volunteer_in.skills,
@@ -133,7 +168,7 @@ def create_volunteer(
     db.add(volunteer)
     db.commit()
     db.refresh(volunteer)
-    
+
     vol_data = schemas.VolunteerResponse.model_validate(volunteer)
     if volunteer.user:
         vol_data.user = schemas.UserInfo(
@@ -151,10 +186,14 @@ def update_volunteer(
     volunteer_in: schemas.VolunteerUpdate,
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
-    """Update a volunteer profile."""
+    """Update a volunteer profile with permission verification."""
+    from app.services.authz import AuthorizationService
     volunteer = db.query(Volunteer).filter(Volunteer.id == volunteer_id).first()
     if not volunteer:
         raise HTTPException(status_code=404, detail="Volunteer not found")
+
+    if not AuthorizationService.can_manage_volunteer(db, current_user, volunteer_id):
+        raise HTTPException(status_code=403, detail="Permission denied: Cannot update this volunteer profile")
 
     update_data = volunteer_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -163,12 +202,12 @@ def update_volunteer(
     db.add(volunteer)
     db.commit()
     db.refresh(volunteer)
-    
+
     active_count = db.query(TaskAssignment).join(Task).filter(
         TaskAssignment.volunteer_id == volunteer.id,
         Task.status.in_([TaskStatus.TODO, TaskStatus.IN_PROGRESS])
     ).count()
-    
+
     vol_data = schemas.VolunteerResponse.model_validate(volunteer)
     vol_data.active_task_count = active_count
     vol_data.load_indicator = get_load_indicator(active_count)
@@ -187,11 +226,27 @@ def delete_volunteer(
     volunteer_id: int,
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
-    """Delete a volunteer profile."""
+    """Delete a volunteer profile (Admin or Club Head only)."""
+    from app.services.authz import AuthorizationService
     volunteer = db.query(Volunteer).filter(Volunteer.id == volunteer_id).first()
     if not volunteer:
         raise HTTPException(status_code=404, detail="Volunteer not found")
-        
+
+    if not AuthorizationService.is_admin(current_user):
+        user_club = AuthorizationService.get_user_club_id(db, current_user)
+        vol_club = volunteer.club_id or (volunteer.user.club_id if volunteer.user else None)
+        if not AuthorizationService.is_club_head(db, current_user, club_id=vol_club):
+            raise HTTPException(status_code=403, detail="Permission denied: Cannot delete volunteer profile")
+
+    # Clean up task assignments referencing this volunteer
+    from app.models.task import TaskAssignment
+    from app.models.meeting import MeetingActionItem
+
+    db.query(TaskAssignment).filter(TaskAssignment.volunteer_id == volunteer.id).delete(synchronize_session=False)
+    db.query(MeetingActionItem).filter(MeetingActionItem.resolved_volunteer_id == volunteer.id).update(
+        {MeetingActionItem.resolved_volunteer_id: None}, synchronize_session=False
+    )
+
     db.delete(volunteer)
     db.commit()
     return {"ok": True}

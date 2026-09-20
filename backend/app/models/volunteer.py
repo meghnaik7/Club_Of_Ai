@@ -13,11 +13,16 @@ class Volunteer(Base):
     __tablename__ = "volunteers"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
-    skills = Column(String, nullable=True) # Stored as comma-separated list
-    availability = Column(String, nullable=True) # Stored as comma-separated list
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=True, index=True)
+    subteam_id = Column(Integer, ForeignKey("teams.id", ondelete="SET NULL"), nullable=True, index=True)
+    skills = Column(String, nullable=True)  # Stored as comma-separated list
+    availability = Column(String, nullable=True)  # Stored as comma-separated list
+    max_capacity = Column(Integer, default=10, nullable=False)  # e.g. hours per week
     status = Column(Enum(VolunteerStatus), default=VolunteerStatus.ACTIVE, nullable=False)
     
     # Relationships
     user = relationship("User", back_populates="volunteer_profile")
-    task_assignments = relationship("TaskAssignment", back_populates="volunteer")
+    club = relationship("Club", foreign_keys=[club_id])
+    subteam = relationship("Team", foreign_keys=[subteam_id])
+    task_assignments = relationship("TaskAssignment", back_populates="volunteer", cascade="all, delete-orphan")

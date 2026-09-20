@@ -1,10 +1,15 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict
 from app.models.user import UserRole
+try:
+    import email_validator
+    from pydantic import EmailStr
+except ImportError:
+    EmailStr = str
 
 # Shared properties
 class UserBase(BaseModel):
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     full_name: Optional[str] = None
     role: Optional[UserRole] = None
     is_active: Optional[bool] = True
@@ -20,9 +25,7 @@ class UserUpdate(UserBase):
 
 class UserInDBBase(UserBase):
     id: Optional[int] = None
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Additional properties to return via API
 class User(UserInDBBase):

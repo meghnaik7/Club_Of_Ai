@@ -1,7 +1,10 @@
 from typing import Generator, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt, JWTError
+try:
+    from jose import jwt, JWTError
+except ImportError:
+    from app.core.security import jwt, JWTError
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -12,7 +15,8 @@ from app.models.user import User
 from app.schemas.token import TokenPayload
 
 reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl="/api/auth/login"
+    tokenUrl="/api/auth/login",
+    auto_error=False
 )
 
 def get_db() -> Generator:
@@ -23,8 +27,14 @@ def get_db() -> Generator:
         db.close()
 
 def get_current_user(
-    db: Session = Depends(get_db), token: str = Depends(reusable_oauth2)
+    db: Session = Depends(get_db), token: Optional[str] = Depends(reusable_oauth2)
 ) -> User:
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
@@ -35,7 +45,35 @@ def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         )
-    user = db.query(User).filter(User.id == int(token_data.sub)).first()
+    sub_val = token_data.sub
+    user = None
+    if sub_val:
+        if str(sub_val).isdigit():
+            user = db.query(User).filter(User.id == int(sub_val)).first()
+        else:
+            user = db.query(User).filter(User.email == str(sub_val)).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+def get_current_user_optional(
+    db: Session = Depends(get_db), token: Optional[str] = Depends(reusable_oauth2)
+) -> Optional[User]:
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
+        )
+        token_data = TokenPayload(**payload)
+        sub_val = token_data.sub
+        if sub_val:
+            if str(sub_val).isdigit():
+                user = db.query(User).filter(User.id == int(sub_val)).first()
+            else:
+                user = db.query(User).filter(User.email == str(sub_val)).first()
+            if user:
+                return user
+        return None
+    except Exception:
+        return None
