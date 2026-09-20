@@ -54,11 +54,11 @@ class Settings(BaseSettings):
     # Centralized Primary and Fallback LLM Registry Settings
     PRIMARY_LLM_PROVIDER: str = os.getenv("PRIMARY_LLM_PROVIDER", os.getenv("LLM_PROVIDER", "openrouter"))
     PRIMARY_LLM_MODEL: str = os.getenv("PRIMARY_LLM_MODEL", os.getenv("LLM_MODEL", "openai/gpt-4o-mini"))
-    PRIMARY_LLM_API_KEY: str = os.getenv("PRIMARY_LLM_API_KEY", os.getenv("OPENROUTER_API_KEY", os.getenv("AZURE_OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", ""))))
+    PRIMARY_LLM_API_KEY: str = os.getenv("PRIMARY_LLM_API_KEY", os.getenv("OPENROUTER_API_KEY", ""))
     
     FALLBACK_LLM_PROVIDER: str = os.getenv("FALLBACK_LLM_PROVIDER", "openrouter")
     FALLBACK_LLM_MODEL: str = os.getenv("FALLBACK_LLM_MODEL", os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini"))
-    FALLBACK_LLM_API_KEY: str = os.getenv("FALLBACK_LLM_API_KEY", os.getenv("OPENROUTER_API_KEY", os.getenv("AZURE_OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", ""))))
+    FALLBACK_LLM_API_KEY: str = os.getenv("FALLBACK_LLM_API_KEY", os.getenv("OPENROUTER_API_KEY", ""))
     
     FALLBACK_SECONDARY_PROVIDER: str = os.getenv("FALLBACK_SECONDARY_PROVIDER", "openrouter")
     FALLBACK_SECONDARY_MODEL: str = os.getenv("FALLBACK_SECONDARY_MODEL", "openai/gpt-4o-mini")
@@ -102,6 +102,13 @@ class Settings(BaseSettings):
     LANGSMITH_PROJECT: str = os.getenv("LANGSMITH_PROJECT", "ClubOps-AI")
     LANGSMITH_ENDPOINT: str = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
 
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    ALLOW_SQLITE_FALLBACK: bool = os.getenv("ALLOW_SQLITE_FALLBACK", "true" if os.getenv("ENVIRONMENT", "development") != "production" else "false").lower() in ("true", "1")
+    DB_POOL_SIZE: int = int(os.getenv("DB_POOL_SIZE", "10"))
+    DB_MAX_OVERFLOW: int = int(os.getenv("DB_MAX_OVERFLOW", "20"))
+    DB_POOL_RECYCLE: int = int(os.getenv("DB_POOL_RECYCLE", "300"))
+    DB_POOL_TIMEOUT: float = float(os.getenv("DB_POOL_TIMEOUT", "30.0"))
+
     DATABASE_URL: str = ""
     
     # LangGraph PostgreSQL Checkpointer Cloud Settings
@@ -111,9 +118,23 @@ class Settings(BaseSettings):
     CHECKPOINTER_POOL_MAX_SIZE: int = 20
     CHECKPOINTER_POOL_TIMEOUT: float = 10.0
 
+    # Sarvam AI Voice Settings
+    SARVAM_API_KEY: str = os.getenv("SARVAM_API_KEY", "")
+    SARVAM_STT_MODEL: str = os.getenv("SARVAM_STT_MODEL", "saaras:v3")
+    SARVAM_TTS_MODEL: str = os.getenv("SARVAM_TTS_MODEL", "bulbul:v3")
+    SARVAM_DEFAULT_LANGUAGE: str = os.getenv("SARVAM_DEFAULT_LANGUAGE", "en-IN")
+    SARVAM_ENGLISH_VOICE: str = os.getenv("SARVAM_ENGLISH_VOICE", "shubh")
+    SARVAM_HINDI_VOICE: str = os.getenv("SARVAM_HINDI_VOICE", "shubh")
+    SARVAM_GUJARATI_VOICE: str = os.getenv("SARVAM_GUJARATI_VOICE", "shubh")
+    VOICE_MAX_AUDIO_SIZE_MB: int = int(os.getenv("VOICE_MAX_AUDIO_SIZE_MB", "25"))
+    VOICE_TIMEOUT_SECONDS: float = float(os.getenv("VOICE_TIMEOUT_SECONDS", "30.0"))
+
     def model_post_init(self, __context: object) -> None:
         env_url = os.getenv("DATABASE_URL") or self.DATABASE_URL
         if env_url and "${" not in env_url:
+            # Normalize legacy postgres:// to postgresql:// for SQLAlchemy compatibility
+            if env_url.startswith("postgres://"):
+                env_url = env_url.replace("postgres://", "postgresql://", 1)
             self.DATABASE_URL = env_url
         else:
             # Build postgresql connection string from components
@@ -126,6 +147,8 @@ class Settings(BaseSettings):
         # Checkpointer URL defaults to DATABASE_URL if not explicitly overridden
         cp_url = os.getenv("CHECKPOINTER_DATABASE_URL") or self.CHECKPOINTER_DATABASE_URL
         if cp_url and "${" not in cp_url:
+            if cp_url.startswith("postgres://"):
+                cp_url = cp_url.replace("postgres://", "postgresql://", 1)
             self.CHECKPOINTER_DATABASE_URL = cp_url
         else:
             self.CHECKPOINTER_DATABASE_URL = self.DATABASE_URL

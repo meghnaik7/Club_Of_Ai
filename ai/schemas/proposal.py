@@ -30,6 +30,11 @@ class EntityDiff(BaseModel):
     action: str
     summary: str
     field_diffs: List[FieldDiff] = Field(default_factory=list)
+    before: Optional[Dict[str, Any]] = None
+    proposed: Optional[Dict[str, Any]] = None
+    reason: Optional[str] = None
+    impact: Optional[str] = None
+    confidence: Optional[str] = "HIGH"
 
 class ProposalDiffPreview(BaseModel):
     proposal_id: int
@@ -38,6 +43,7 @@ class ProposalDiffPreview(BaseModel):
     total_changes: int
     entities_affected: List[str]
     diffs: List[EntityDiff] = Field(default_factory=list)
+    overall_impact: Optional[str] = None
 
 class AuditLogEntryOut(BaseModel):
     id: int

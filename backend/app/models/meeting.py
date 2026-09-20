@@ -17,7 +17,7 @@ class Meeting(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    event = relationship("Event", backref="meetings")
+    event = relationship("Event", back_populates="meetings")
     action_items = relationship("MeetingActionItem", back_populates="meeting", cascade="all, delete-orphan")
 
 

@@ -55,7 +55,8 @@ export default function VolunteerProfile() {
     try {
       await api.delete(`/volunteers/${id}`);
       navigate('/volunteers');
-    } catch {
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || 'Failed to delete volunteer');
       setDeleting(false);
     }
   };

@@ -34,6 +34,20 @@ export default function EventForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const toLocalDateTimeInput = (dateVal: string | Date | null | undefined): string => {
+    if (!dateVal) return '';
+    if (typeof dateVal === 'string') {
+      const clean = dateVal.replace(' ', 'T');
+      if (!dateVal.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(dateVal)) {
+        return clean.slice(0, 16);
+      }
+    }
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
   useEffect(() => {
     if (isEdit && id) {
       setLoading(true);
@@ -42,7 +56,7 @@ export default function EventForm() {
           setForm({
             title: e.title || '',
             description: e.description || '',
-            date: e.date ? new Date(e.date).toISOString().slice(0, 16) : '',
+            date: toLocalDateTimeInput(e.date),
             venue: e.venue || '',
             budget: e.budget || 0,
             expected_attendance: e.expected_attendance || 0,
@@ -66,7 +80,7 @@ export default function EventForm() {
     const payload: EventCreate = {
       title: form.title,
       description: form.description || undefined,
-      date: new Date(form.date).toISOString(),
+      date: form.date,
       venue: form.venue || undefined,
       budget: Number(form.budget),
       expected_attendance: Number(form.expected_attendance),

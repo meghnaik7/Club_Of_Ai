@@ -22,7 +22,7 @@ class EventRisk(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    event = relationship("Event", backref="risks")
+    event = relationship("Event", back_populates="risks")
     task = relationship("Task")
 
     def __repr__(self):

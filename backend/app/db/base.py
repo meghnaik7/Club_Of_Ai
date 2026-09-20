@@ -53,3 +53,9 @@ try:
     from app.models.escalation import TaskEscalation
 except ImportError:
     pass
+
+try:
+    from app.models.feedback import AIFeedback
+except ImportError:
+    pass
+

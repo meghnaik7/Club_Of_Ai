@@ -1,0 +1,14 @@
+{
+  "include": [
+    "ai",
+    "backend"
+  ],
+  "extraPaths": [
+    "backend",
+    "."
+  ],
+  "typeCheckingMode": "off",
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none",
+  "reportInvalidTypeForm": "none"
+}

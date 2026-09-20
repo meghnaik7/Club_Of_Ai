@@ -219,6 +219,18 @@ def delete_task(
         detail="Permission denied: Team Members cannot delete tasks"
     )
 
+    # Clean up dependent task relationships and escalations
+    from app.models.escalation import TaskEscalation
+    from app.models.task import TaskDependency, TaskComment, TaskAssignment
+
+    db.query(TaskEscalation).filter(TaskEscalation.task_id == task.id).delete(synchronize_session=False)
+    db.query(TaskAssignment).filter(TaskAssignment.task_id == task.id).delete(synchronize_session=False)
+    db.query(TaskDependency).filter(
+        (TaskDependency.dependent_task_id == task.id) | (TaskDependency.prerequisite_task_id == task.id)
+    ).delete(synchronize_session=False)
+    db.query(TaskComment).filter(TaskComment.task_id == task.id).delete(synchronize_session=False)
+    db.query(Task).filter(Task.parent_id == task.id).update({Task.parent_id: None}, synchronize_session=False)
+
     db.delete(task)
     db.commit()
     return {"ok": True}

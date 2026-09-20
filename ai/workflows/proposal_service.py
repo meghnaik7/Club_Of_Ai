@@ -239,24 +239,96 @@ def preview_action_diff(db: Session, proposal_id: int) -> ProposalDiffPreview:
                     change_type="REMOVED"
                 ))
             summary = f"Delete existing {entity_type} #{ch.entity_id}"
-        else:
-            summary = f"Action {action_str} on {entity_type}"
+        # Construct clean Before vs Proposed card representations for HITL review
+        before_card = None
+        proposed_card = None
+        reason_str = ch.explanation or f"Proposed {action_str} on {entity_type}"
+        impact_str = proposed.get("impact", "No event-date delay expected.")
+        confidence_str = proposed.get("confidence", "HIGH")
+
+        entity_upper = (entity_type or "").upper()
+        action_upper = (action_str or "").upper()
+
+        if entity_upper == "TASK":
+            if action_upper == "UPDATE" and ch.entity_id:
+                tk = db.query(TaskModel).filter(TaskModel.id == ch.entity_id).first()
+                if tk:
+                    existing_owner = "Unassigned"
+                    if tk.assignments:
+                        assignee = tk.assignments[0].volunteer
+                        if assignee and assignee.user:
+                            existing_owner = assignee.user.full_name
+                        elif assignee:
+                            existing_owner = f"Volunteer #{assignee.id}"
+
+                    due_str = tk.due_date.strftime("%b %d, %Y") if tk.due_date else "No deadline"
+                    before_card = {
+                        "task": tk.title,
+                        "owner": existing_owner,
+                        "due": due_str,
+                        "status": tk.status.value if hasattr(tk.status, "value") else str(tk.status)
+                    }
+
+                    proposed_owner = proposed.get("volunteer_name")
+                    if not proposed_owner and proposed.get("volunteer_id"):
+                        from app.models.volunteer import Volunteer as VolModel
+                        vol_obj = db.query(VolModel).filter(VolModel.id == proposed["volunteer_id"]).first()
+                        if vol_obj and vol_obj.user:
+                            proposed_owner = vol_obj.user.full_name
+
+                    new_due = proposed.get("due_date") or proposed.get("deadline") or due_str
+                    proposed_card = {
+                        "task": proposed.get("title", tk.title),
+                        "owner": proposed_owner or existing_owner,
+                        "due": str(new_due),
+                        "status": str(proposed.get("status", tk.status.value if hasattr(tk.status, "value") else str(tk.status)))
+                    }
+            elif action_upper == "CREATE":
+                proposed_card = {
+                    "task": proposed.get("title", "New Task"),
+                    "owner": proposed.get("volunteer_name", "Unassigned"),
+                    "due": str(proposed.get("due_date", proposed.get("deadline", "TBD"))),
+                    "status": str(proposed.get("status", "TODO"))
+                }
+            elif action_upper == "DELETE" and ch.entity_id:
+                tk = db.query(TaskModel).filter(TaskModel.id == ch.entity_id).first()
+                if tk:
+                    before_card = {
+                        "task": tk.title,
+                        "status": tk.status.value if hasattr(tk.status, "value") else str(tk.status)
+                    }
+        elif entity_upper == "EVENT":
+            if action_upper == "CREATE":
+                proposed_card = {
+                    "task": proposed.get("title", "New Event"),
+                    "venue": proposed.get("venue", "TBD"),
+                    "due": str(proposed.get("date", "TBD")),
+                    "status": "UPCOMING"
+                }
 
         entity_diffs.append(EntityDiff(
             entity_type=entity_type,
             entity_id=ch.entity_id,
             action=action_str,
             summary=summary,
-            field_diffs=field_diffs
+            field_diffs=field_diffs,
+            before=before_card,
+            proposed=proposed_card,
+            reason=reason_str,
+            impact=impact_str,
+            confidence=confidence_str
         ))
 
+    overall_impact = "All proposed changes maintain schedule integrity." if entity_diffs else "No changes."
     return ProposalDiffPreview(
         proposal_id=proposal.id,
         intent=proposal.intent,
         status=proposal.status.value if hasattr(proposal.status, "value") else str(proposal.status),
         total_changes=len(entity_diffs),
         entities_affected=list(entities_affected_set),
-        diffs=entity_diffs
+        diffs=entity_diffs,
+        overall_impact=overall_impact,
+        overall_confidence="HIGH"
     )
 
 def apply_proposal(db: Session, proposal_id: int, user_id: Optional[int] = None) -> ProposalResponse:

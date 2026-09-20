@@ -76,3 +76,9 @@ from .escalation import (
     EscalationResolveRequest,
     EscalationManualPromoteRequest,
 )
+from .feedback import (
+    FeedbackCreate,
+    FeedbackOut,
+    FeedbackAnalytics,
+)
+

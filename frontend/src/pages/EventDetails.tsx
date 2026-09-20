@@ -51,7 +51,8 @@ export default function EventDetails() {
     try {
       await EventsService.delete(Number(id));
       navigate('/events');
-    } catch {
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || 'Failed to delete event');
       setDeleting(false);
     }
   };
@@ -76,7 +77,7 @@ export default function EventDetails() {
     );
   }
 
-  const eventDate = new Date(event.date);
+  const eventDate = new Date(typeof event.date === 'string' ? event.date.replace(' ', 'T') : event.date);
   const daysRemaining = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   const isPast = daysRemaining < 0;
   const budget = Number(event.budget || 0);

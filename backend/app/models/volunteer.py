@@ -25,4 +25,4 @@ class Volunteer(Base):
     user = relationship("User", back_populates="volunteer_profile")
     club = relationship("Club", foreign_keys=[club_id])
     subteam = relationship("Team", foreign_keys=[subteam_id])
-    task_assignments = relationship("TaskAssignment", back_populates="volunteer")
+    task_assignments = relationship("TaskAssignment", back_populates="volunteer", cascade="all, delete-orphan")

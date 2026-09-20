@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+import uuid
 from datetime import datetime, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -131,7 +132,7 @@ class TestMemorySystem(unittest.TestCase):
 
     def test_03_short_term_checkpoint_persistence_across_turns(self):
         """LangGraph checkpointer maintains state across turns with the same thread_id."""
-        thread_id = "test-session-thread-999"
+        thread_id = f"test-session-thread-{uuid.uuid4().hex}"
         config = get_thread_config(thread_id=thread_id, user_id=self.user1.id)
 
         # Turn 1

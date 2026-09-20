@@ -54,7 +54,10 @@ class LLMResponse(BaseModel):
 
     def to_chat_message(self) -> Any:
         """Converts to LangChain AIMessage for LangGraph compatibility."""
-        from langchain_core.messages import AIMessage
+        try:
+            from langchain_core.messages import AIMessage
+        except ImportError:
+            from ai.tools.compat import AIMessage
         return AIMessage(
             content=self.content,
             tool_calls=self.tool_calls,
@@ -358,8 +361,11 @@ class LLMService:
         timeout: float,
         temperature: float,
     ) -> Dict[str, Any]:
-        from langchain_openai import ChatOpenAI
-        from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
+        try:
+            from langchain_openai import ChatOpenAI
+            from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
+        except ImportError:
+            from ai.tools.compat import ChatOpenAI, SystemMessage, HumanMessage, BaseMessage
 
         is_azure = (config.provider in ("azure", "azure_openai") or (config.base_url and "azure" in config.base_url.lower())) and config.provider != "openrouter"
         azure_ep = config.base_url or getattr(settings, "AZURE_OPENAI_ENDPOINT", None)

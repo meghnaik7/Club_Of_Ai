@@ -61,9 +61,19 @@ from ai.tools.context_tools import (
     get_project_summary,
     search_tasks,
     search_volunteers,
-    search_event_data
+    search_event_data,
+    get_next_event,
+    get_upcoming_events
 )
 from ai.tools.command_tool import execute_command
+from ai.tools.agentic_tools import (
+    plan_event_agentic,
+    recover_delayed_event,
+    redistribute_volunteer_tasks,
+    extract_meeting_action_items,
+    agentic_rag_query,
+    analyze_and_resolve_risks
+)
 try:
     from app.core.config import settings
     from app.ai.llm_service import llm_service
@@ -109,7 +119,15 @@ tools = [
     search_tasks,
     search_volunteers,
     search_event_data,
-    execute_command
+    get_next_event,
+    get_upcoming_events,
+    execute_command,
+    plan_event_agentic,
+    recover_delayed_event,
+    redistribute_volunteer_tasks,
+    extract_meeting_action_items,
+    agentic_rag_query,
+    analyze_and_resolve_risks
 ]
 
 base_tool_node = ToolNode(tools) if (HAS_LANGGRAPH and ToolNode is not None) else None
@@ -336,9 +354,12 @@ if HAS_LANGGRAPH and StateGraph is not None and START is not None and END is not
         compiled_graph = workflow.compile(checkpointer=memory_checkpointer)
         return compiled_graph
 else:
+    memory_checkpointer = get_checkpointer()
+
     class FallbackCompiledGraph:
-        def __init__(self):
+        def __init__(self, checkpointer=None):
             self._threads: Dict[str, Any] = {}
+            self.checkpointer = checkpointer or memory_checkpointer
 
         def get_state(self, config: Optional[Dict[str, Any]] = None):
             thread_id = (config or {}).get("configurable", {}).get("thread_id", "default")
@@ -363,10 +384,15 @@ else:
             self._threads[thread_id] = saved_state
             return saved_state
 
-    compiled_graph = FallbackCompiledGraph()
-    memory_checkpointer = None
+    compiled_graph = FallbackCompiledGraph(memory_checkpointer)
 
     def recompile_graph(checkpointer=None):
+        global compiled_graph, memory_checkpointer
+        if checkpointer is not None:
+            memory_checkpointer = checkpointer
+        else:
+            memory_checkpointer = get_checkpointer()
+        compiled_graph = FallbackCompiledGraph(memory_checkpointer)
         return compiled_graph
 
 def get_thread_config(thread_id: str, user_id: Optional[int] = None):

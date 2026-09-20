@@ -246,12 +246,14 @@ def split_task(
             normalized = []
             for idx, st in enumerate(raw_subtasks):
                 if isinstance(st, dict):
-                    if "title" not in st and "task" in st:
-                        st["title"] = st["task"]
-                    if "depends_on_subtask_index" not in st:
-                        st["depends_on_subtask_index"] = idx - 1 if idx > 0 else None
+                    if "title" not in st:
+                        st["title"] = st.get("subtask_name") or st.get("name") or st.get("task") or f"Subtask {idx + 1}"
+                    if "depends_on_subtask_index" not in st or (idx > 0 and st.get("depends_on_subtask_index") is None):
+                        st["depends_on_subtask_index"] = idx - 1
+                    elif idx == 0:
+                        st["depends_on_subtask_index"] = None
                     if "suggested_skills" not in st:
-                        st["suggested_skills"] = st.get("skills") or ["Planning", "Execution"]
+                        st["suggested_skills"] = st.get("skills") or st.get("skills_required") or ["Planning", "Execution"]
                     normalized.append(st)
             return {
                 "parent_task_id": task_id,
@@ -369,7 +371,32 @@ def suggest_task_owner(
             # 3. Availability score
             avail_score = 10 if vol.availability else 5
 
-            total_score = min(100, int(skill_score + workload_score + avail_score))
+            # 4. Closed-Loop Feedback & Historical Performance Adjustment
+            feedback_penalty = 0
+            feedback_bonus = 0
+            feedback_notes = []
+            try:
+                from app.models.feedback import AIFeedback
+                vol_feedbacks = db.query(AIFeedback).all()
+                for fb in vol_feedbacks:
+                    is_this_vol = False
+                    if fb.metadata_json and isinstance(fb.metadata_json, dict) and fb.metadata_json.get("volunteer_id") == vol.id:
+                        is_this_vol = True
+                    elif fb.comment and (f"#{vol.id}" in fb.comment or (vol.user and vol.user.full_name and vol.user.full_name in fb.comment)):
+                        is_this_vol = True
+
+                    if is_this_vol:
+                        if fb.rating in ["POOR", "NEGATIVE", "DOWN"] or fb.feedback_type in ["wrong_volunteer", "assignment_conflict"]:
+                            feedback_penalty += 35
+                            feedback_notes.append("Prior leader feedback flagged assignment conflict (-35)")
+                        elif fb.rating in ["GOOD", "POSITIVE", "UP"] or fb.feedback_type == "positive_execution":
+                            feedback_bonus += 10
+                            feedback_notes.append("Prior positive feedback (+10)")
+            except Exception as fb_err:
+                logger.warning(f"Feedback scoring adjustment notice: {fb_err}")
+
+            raw_score = skill_score + workload_score + avail_score + feedback_bonus - feedback_penalty
+            total_score = max(5, min(100, int(raw_score)))
 
             user_name = vol.user.full_name if vol.user else f"Volunteer #{vol.id}"
             user_email = vol.user.email if vol.user else ""
@@ -380,6 +407,8 @@ def suggest_task_owner(
             else:
                 rationale_parts.append("Has general club operational capabilities")
             rationale_parts.append(f"Current active workload: {active_count} tasks")
+            if feedback_notes:
+                rationale_parts.append(f"Feedback Loop: {', '.join(feedback_notes)}")
 
             scored_candidates.append({
                 "volunteer_id": vol.id,
@@ -388,6 +417,7 @@ def suggest_task_owner(
                 "match_score": total_score,
                 "skills_matched": matched,
                 "current_active_tasks": active_count,
+                "feedback_adjustment": feedback_bonus - feedback_penalty,
                 "rationale": ". ".join(rationale_parts) + "."
             })
 

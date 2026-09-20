@@ -11,6 +11,7 @@ from app.models.permission import Permission, RolePermission, UserPermission, Sc
 from app.models.chat_history import RAGChatHistory
 from app.memory.models import Memory
 from app.models.escalation import TaskEscalation, EscalationLevel, EscalationStatus
+from app.models.feedback import AIFeedback
 
 __all__ = [
     "User",
@@ -53,4 +54,5 @@ __all__ = [
     "TaskEscalation",
     "EscalationLevel",
     "EscalationStatus",
+    "AIFeedback",
 ]

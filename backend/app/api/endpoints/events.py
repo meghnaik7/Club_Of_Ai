@@ -126,6 +126,44 @@ def delete_event(
         if not AuthorizationService.is_club_head(db, current_user, club_id=event.club_id) or (event.club_id and user_club != event.club_id):
             raise HTTPException(status_code=403, detail="Permission denied: Cannot delete this event")
 
+    # Explicitly clean up all dependent children to prevent foreign key errors across all database engines
+    from app.models.task import Task, TaskAssignment, TaskDependency, TaskComment
+    from app.models.escalation import TaskEscalation
+    from app.models.risk import EventRisk
+    from app.models.meeting import Meeting, MeetingActionItem
+    from app.models.team import EventMembership
+    from app.models.announcement import Announcement
+    from app.models.document import PastLesson
+    from app.models.chat_history import RAGChatHistory
+    from app.models.event import Expense, EventBudgetCategory
+
+    task_ids = [t.id for t in db.query(Task.id).filter(Task.event_id == event.id).all()]
+    if task_ids:
+        db.query(TaskEscalation).filter(TaskEscalation.task_id.in_(task_ids)).delete(synchronize_session=False)
+        db.query(TaskAssignment).filter(TaskAssignment.task_id.in_(task_ids)).delete(synchronize_session=False)
+        db.query(TaskDependency).filter(
+            (TaskDependency.dependent_task_id.in_(task_ids)) | (TaskDependency.prerequisite_task_id.in_(task_ids))
+        ).delete(synchronize_session=False)
+        db.query(TaskComment).filter(TaskComment.task_id.in_(task_ids)).delete(synchronize_session=False)
+        # Clear parent_id self-references before deleting tasks
+        db.query(Task).filter(Task.event_id == event.id).update({Task.parent_id: None}, synchronize_session=False)
+        db.query(Task).filter(Task.event_id == event.id).delete(synchronize_session=False)
+
+    db.query(TaskEscalation).filter(TaskEscalation.event_id == event.id).delete(synchronize_session=False)
+    db.query(EventRisk).filter(EventRisk.event_id == event.id).delete(synchronize_session=False)
+
+    meeting_ids = [m.id for m in db.query(Meeting.id).filter(Meeting.event_id == event.id).all()]
+    if meeting_ids:
+        db.query(MeetingActionItem).filter(MeetingActionItem.meeting_id.in_(meeting_ids)).delete(synchronize_session=False)
+        db.query(Meeting).filter(Meeting.id.in_(meeting_ids)).delete(synchronize_session=False)
+
+    db.query(EventMembership).filter(EventMembership.event_id == event.id).delete(synchronize_session=False)
+    db.query(Announcement).filter(Announcement.event_id == event.id).delete(synchronize_session=False)
+    db.query(RAGChatHistory).filter(RAGChatHistory.event_id == event.id).delete(synchronize_session=False)
+    db.query(PastLesson).filter(PastLesson.event_id == event.id).delete(synchronize_session=False)
+    db.query(Expense).filter(Expense.event_id == event.id).delete(synchronize_session=False)
+    db.query(EventBudgetCategory).filter(EventBudgetCategory.event_id == event.id).delete(synchronize_session=False)
+
     db.delete(event)
     db.commit()
     return {"ok": True}

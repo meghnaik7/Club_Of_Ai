@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Search, Upload, Trash2, Sparkles, BookOpen, Send, Loader2, History, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { FileText, Search, Upload, Trash2, Sparkles, BookOpen, Send, Loader2, History, ShieldCheck, CheckCircle2, Lock } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import DocumentsService from '../services/documents.service';
 import type { DocumentItem, RAGHistoryItem } from '../services/documents.service';
+import { useAuth } from '../context/AuthContext';
 
 export default function DocumentList() {
   const [activeTab, setActiveTab] = useState<'rag' | 'files'>('rag');
@@ -20,6 +21,9 @@ export default function DocumentList() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadCategory, setUploadCategory] = useState('POST_MORTEM');
   const [uploadError, setUploadError] = useState('');
+
+  const { isAdmin } = useAuth();
+  const canUpload = Boolean(isAdmin);
 
   // Search
   const [searchFilter, setSearchFilter] = useState('');
@@ -84,6 +88,10 @@ export default function DocumentList() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canUpload) {
+      setUploadError('Permission denied: Only System Admin can upload documents for RAG.');
+      return;
+    }
     if (!uploadFile) return;
 
     const formData = new FormData();
@@ -299,46 +307,67 @@ export default function DocumentList() {
         {/* TAB 2: UPLOADED DOCUMENTS MANAGEMENT */}
         {activeTab === 'files' && (
           <div className="space-y-6">
-            {/* Upload Box */}
-            <div className="bg-slate-900/80 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Upload className="w-4 h-4 text-indigo-400" />
-                Upload Club Document
-              </h3>
-              <form onSubmit={handleUpload} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2">
-                  <input
-                    type="file"
-                    accept=".pdf,.docx,.txt,.md"
-                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                    className="w-full text-sm text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600/20 file:text-indigo-300 hover:file:bg-indigo-600/30 file:cursor-pointer cursor-pointer border border-slate-800 bg-slate-950 p-1.5 rounded-xl"
-                  />
+            {/* Upload Box (Admin & Club Head Only) */}
+            {canUpload ? (
+              <div className="bg-slate-900/80 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4">
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-indigo-400" />
+                  Upload Club Document
+                </h3>
+                <form onSubmit={handleUpload} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2">
+                    <input
+                      type="file"
+                      accept=".pdf,.docx,.txt,.md"
+                      onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                      className="w-full text-sm text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600/20 file:text-indigo-300 hover:file:bg-indigo-600/30 file:cursor-pointer cursor-pointer border border-slate-800 bg-slate-950 p-1.5 rounded-xl"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <select
+                      value={uploadCategory}
+                      onChange={(e) => setUploadCategory(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="POST_MORTEM">Post-Mortem</option>
+                      <option value="BUDGET">Budget / Finance</option>
+                      <option value="VENUE_RULES">Venue Policy</option>
+                      <option value="SPONSOR_DECK">Sponsorship</option>
+                      <option value="MEETING_NOTES">Meeting Notes</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                    <button
+                      type="submit"
+                      disabled={isUploading || !uploadFile}
+                      className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md shrink-0"
+                    >
+                      {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      Upload
+                    </button>
+                  </div>
+                </form>
+                {uploadError && <p className="text-xs text-red-400">{uploadError}</p>}
+              </div>
+            ) : (
+              <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl shadow-xl flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                    <Lock className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      Document Upload Restricted
+                      <span className="text-[10px] uppercase font-semibold bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20">
+                        System Admin Only
+                      </span>
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Only System Administrators can upload and add reference documents into the RAG knowledge brain.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <select
-                    value={uploadCategory}
-                    onChange={(e) => setUploadCategory(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="POST_MORTEM">Post-Mortem</option>
-                    <option value="BUDGET">Budget / Finance</option>
-                    <option value="VENUE_RULES">Venue Policy</option>
-                    <option value="SPONSOR_DECK">Sponsorship</option>
-                    <option value="MEETING_NOTES">Meeting Notes</option>
-                    <option value="OTHER">Other</option>
-                  </select>
-                  <button
-                    type="submit"
-                    disabled={isUploading || !uploadFile}
-                    className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md shrink-0"
-                  >
-                    {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                    Upload
-                  </button>
-                </div>
-              </form>
-              {uploadError && <p className="text-xs text-red-400">{uploadError}</p>}
-            </div>
+              </div>
+            )}
 
             {/* Document List */}
             <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
@@ -386,13 +415,15 @@ export default function DocumentList() {
                           </div>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleDeleteDoc(doc.id)}
-                        className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800 transition-colors"
-                        title="Delete document"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {canUpload && (
+                        <button
+                          onClick={() => handleDeleteDoc(doc.id)}
+                          className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800 transition-colors"
+                          title="Delete document"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

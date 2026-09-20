@@ -48,8 +48,8 @@ class TaskEscalation(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
-    task = relationship("Task", backref="escalations")
-    event = relationship("Event", backref="task_escalations")
+    task = relationship("Task", back_populates="escalations")
+    event = relationship("Event", back_populates="escalations")
     acknowledger = relationship("User", foreign_keys=[acknowledged_by])
 
     def __repr__(self):

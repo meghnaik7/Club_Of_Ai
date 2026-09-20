@@ -104,4 +104,4 @@ class EventMembership(Base):
 
     # Relationships
     user = relationship("User", backref="event_memberships")
-    event = relationship("Event", backref="event_memberships")
+    event = relationship("Event", back_populates="event_memberships")

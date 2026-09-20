@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from app.models.event import EventStatus
 
 
@@ -42,6 +42,21 @@ class BudgetCategoryRead(BudgetCategoryBase):
 
 
 # --- Event Schemas ---
+def _normalize_datetime(v: Any) -> Any:
+    if v is None:
+        return None
+    if isinstance(v, str):
+        v_clean = v.strip().replace(" ", "T")
+        try:
+            dt = datetime.fromisoformat(v_clean.replace("Z", "+00:00"))
+            return dt.replace(tzinfo=None)
+        except Exception:
+            return v
+    elif isinstance(v, datetime) and v.tzinfo is not None:
+        return v.replace(tzinfo=None)
+    return v
+
+
 class EventBase(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
@@ -51,6 +66,11 @@ class EventBase(BaseModel):
     budget_spent: Optional[float] = 0.0
     expected_attendance: Optional[int] = 0
     status: Optional[EventStatus] = EventStatus.DRAFT
+
+    @field_validator("date", mode="before")
+    @classmethod
+    def validate_date(cls, v: Any) -> Any:
+        return _normalize_datetime(v)
 
 
 class EventCreate(EventBase):
@@ -67,6 +87,11 @@ class EventUpdate(BaseModel):
     budget_spent: Optional[float] = None
     expected_attendance: Optional[int] = None
     status: Optional[EventStatus] = None
+
+    @field_validator("date", mode="before")
+    @classmethod
+    def validate_date(cls, v: Any) -> Any:
+        return _normalize_datetime(v)
 
 
 class EventInDBBase(EventBase):

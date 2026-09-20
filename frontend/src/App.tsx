@@ -18,6 +18,8 @@ import TeamManagement from './pages/TeamManagement';
 import PermissionManagement from './pages/PermissionManagement';
 import AdminOrganization from './pages/AdminOrganization';
 import DocumentList from './pages/DocumentList';
+import Profile from './pages/Profile';
+import AgenticAI from './pages/AgenticAI';
 import './App.css';
 
 function App() {
@@ -31,6 +33,7 @@ function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/profile" element={<Profile />} />
 
             {/* Admin Organization & Hierarchy */}
             <Route path="/admin/organization" element={<AdminOrganization />} />
@@ -61,9 +64,13 @@ function App() {
             {/* Tasks */}
             <Route path="/tasks" element={<TaskList />} />
 
+            {/* Agentic AI Operations */}
+            <Route path="/agentic-ai" element={<AgenticAI />} />
+
             {/* Documents & RAG Knowledge Brain */}
             <Route path="/documents" element={<DocumentList />} />
           </Route>
+
         </Routes>
       </Router>
     </AuthProvider>

@@ -393,6 +393,32 @@ def execute_command(
                 "message": f"Retrieved project summary: {summary.get('active_tasks')} active tasks, {summary.get('completion_rate_percent')}% complete."
             }
 
+        if ("next" in cmd_lower or "upcoming" in cmd_lower) and "event" in cmd_lower:
+            next_ev = context_service.get_next_event(db=db)
+            title = next_ev.get("title", "Upcoming Event")
+            venue = next_ev.get("venue", "Campus Auditorium")
+            date_str = next_ev.get("formatted_date", "Date TBD")
+            days_until = next_ev.get("days_until", 0)
+            attendance = next_ev.get("expected_attendance", 0)
+            budget = next_ev.get("budget", 0.0)
+            total_tasks = next_ev.get("total_tasks", 0)
+
+            days_text = f"in {days_until} days" if days_until > 0 else "approaching soon"
+            msg = (
+                f"📅 The next event is **{title}**, scheduled {days_text} on **{date_str}**.\n\n"
+                f"• **Venue**: {venue}\n"
+                f"• **Expected Attendance**: {attendance} attendees\n"
+                f"• **Budget Allocated**: ₹{budget:,.2f}\n"
+                f"• **Active Tasks**: {total_tasks} operations tasks\n"
+                f"• **Description**: {next_ev.get('description', '')}"
+            )
+            return {
+                "status": "COMPLETED",
+                "type": "NEXT_EVENT_DETAILS",
+                "result": next_ev,
+                "message": msg
+            }
+
         if "context" in cmd_lower and "event" in cmd_lower:
             eid_match = re.search(r"event\s+#?(\d+)", cmd_trimmed, re.I)
             eid = int(eid_match.group(1)) if eid_match else active_event_id

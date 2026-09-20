@@ -35,6 +35,10 @@ class Event(Base):
     tasks = relationship("Task", backref="event", cascade="all, delete-orphan")
     expenses = relationship("Expense", back_populates="event", cascade="all, delete-orphan")
     budget_categories = relationship("EventBudgetCategory", back_populates="event", cascade="all, delete-orphan")
+    risks = relationship("EventRisk", back_populates="event", cascade="all, delete-orphan")
+    meetings = relationship("Meeting", back_populates="event", cascade="all, delete-orphan")
+    escalations = relationship("TaskEscalation", back_populates="event", cascade="all, delete-orphan")
+    event_memberships = relationship("EventMembership", back_populates="event", cascade="all, delete-orphan")
 
 
 class EventBudgetCategory(Base):

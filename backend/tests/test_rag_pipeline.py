@@ -14,7 +14,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from app.db.base import Base
 from app.models.document import Document, DocumentChunk, DocumentCategory
 from app.models.event import Event, EventStatus
-from app.models.user import User
+from app.models.user import User, UserRole
+from app.core.security import create_access_token
+from app.core.permissions import seed_permissions
 from app.main import app
 
 from ai.rag.embeddings import generate_embedding, cosine_similarity
@@ -41,6 +43,10 @@ class TestAdvancedRAGPipeline(unittest.TestCase):
         cls.TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=cls.engine)
         cls.orig_doc_tools_session = document_tools.SessionLocal
         document_tools.SessionLocal = cls.TestingSessionLocal
+
+        seed_db = cls.TestingSessionLocal()
+        seed_permissions(seed_db)
+        seed_db.close()
 
         def override_get_db():
             db = cls.TestingSessionLocal()
@@ -336,6 +342,80 @@ class TestAdvancedRAGPipeline(unittest.TestCase):
         self.assertIn("configurable", config)
         self.assertEqual(config["configurable"]["thread_id"], "thread-test-123")
         self.assertEqual(config["configurable"]["user_id"], "42")
+
+    def test_rag_pipeline_knowledge_base_added_only_by_system_admin(self):
+        """Verify that inside RAG pipeline, knowledge base documents can only be added by System Admin."""
+        # 1. Seed users across hierarchy
+        admin = User(email="sysadmin_rag@clubops.ai", full_name="Sys Admin", hashed_password="pw", role=UserRole.ADMIN, is_active=True)
+        head = User(email="head_rag@clubops.ai", full_name="Club Head", hashed_password="pw", role=UserRole.CLUB_HEAD, is_active=True)
+        lead = User(email="lead_rag@clubops.ai", full_name="Subteam Lead", hashed_password="pw", role=UserRole.SUBTEAM_LEAD, is_active=True)
+        vol = User(email="vol_rag@clubops.ai", full_name="Volunteer", hashed_password="pw", role=UserRole.VOLUNTEER, is_active=True)
+        self.db.add_all([admin, head, lead, vol])
+        self.db.commit()
+
+        admin_id = admin.id
+        head_id = head.id
+        lead_id = lead.id
+        vol_id = vol.id
+
+        admin_headers = {"Authorization": f"Bearer {create_access_token(str(admin_id))}"}
+        head_headers = {"Authorization": f"Bearer {create_access_token(str(head_id))}"}
+        lead_headers = {"Authorization": f"Bearer {create_access_token(str(lead_id))}"}
+        vol_headers = {"Authorization": f"Bearer {create_access_token(str(vol_id))}"}
+
+        doc_content = b"Official AI Lab Policy: The high-performance compute GPU server requires reservation 48 hours in advance through the cluster portal."
+        file_payload = {
+            "file": ("gpu_policy.txt", doc_content, "text/plain")
+        }
+        form_data = {
+            "name": "GPU Server Policy",
+            "category": "VENUE_RULES"
+        }
+
+        # 2. Unauthenticated upload -> 401 Unauthorized
+        res_unauth = self.client.post("/api/documents/upload", files=file_payload, data=form_data)
+        self.assertEqual(res_unauth.status_code, 401)
+
+        # 3. Volunteer upload -> 403 Forbidden
+        file_payload["file"] = ("gpu_policy.txt", doc_content, "text/plain")
+        res_vol = self.client.post("/api/documents/upload", headers=vol_headers, files=file_payload, data=form_data)
+        self.assertEqual(res_vol.status_code, 403)
+        self.assertIn("Permission denied", res_vol.json()["detail"])
+
+        # 4. Subteam Lead upload -> 403 Forbidden
+        file_payload["file"] = ("gpu_policy.txt", doc_content, "text/plain")
+        res_lead = self.client.post("/api/documents/upload", headers=lead_headers, files=file_payload, data=form_data)
+        self.assertEqual(res_lead.status_code, 403)
+        self.assertIn("Permission denied", res_lead.json()["detail"])
+
+        # 5. Club Head upload -> 403 Forbidden (Strictly System Admin only)
+        file_payload["file"] = ("gpu_policy.txt", doc_content, "text/plain")
+        res_head = self.client.post("/api/documents/upload", headers=head_headers, files=file_payload, data=form_data)
+        self.assertEqual(res_head.status_code, 403)
+        self.assertIn("Permission denied", res_head.json()["detail"])
+
+        # 6. System Admin upload -> 201 Created (Added into RAG knowledge base)
+        file_payload["file"] = ("gpu_policy.txt", doc_content, "text/plain")
+        res_admin = self.client.post("/api/documents/upload", headers=admin_headers, files=file_payload, data=form_data)
+        self.assertEqual(res_admin.status_code, 201)
+        doc_data = res_admin.json()
+        self.assertIn("id", doc_data)
+        self.assertEqual(doc_data["name"], "GPU Server Policy")
+        self.assertGreater(doc_data["chunk_count"], 0)
+
+        # 7. Query RAG pipeline against the newly added knowledge base
+        rag_query_resp = self.client.post(
+            "/api/documents/rag/query",
+            json={"query": "How many hours in advance must the compute GPU server be reserved?", "top_k": 3}
+        )
+        self.assertEqual(rag_query_resp.status_code, 200)
+        rag_data = rag_query_resp.json()
+        self.assertIn("answer", rag_data)
+        self.assertIn("citations", rag_data)
+        self.assertIn("48 hours", rag_data["answer"])
+        self.assertGreaterEqual(rag_data["confidence"], 0.4)
+        self.assertTrue(any("gpu" in c.get("filename", "").lower() or "policy" in c.get("filename", "").lower() or "gpu" in str(c).lower() for c in rag_data["citations"]))
+
 
 if __name__ == "__main__":
     unittest.main()

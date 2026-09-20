@@ -98,8 +98,8 @@ STANDARD_PERMISSIONS = {
 # Role to Permission mapping
 DEFAULT_ROLE_PERMISSIONS = {
     "ADMIN": list(STANDARD_PERMISSIONS.keys()),
-    "CLUB_HEAD": list(STANDARD_PERMISSIONS.keys()),
-    "CLUB_LEADER": list(STANDARD_PERMISSIONS.keys()),
+    "CLUB_HEAD": [p for p in STANDARD_PERMISSIONS.keys() if p != "document.upload"],
+    "CLUB_LEADER": [p for p in STANDARD_PERMISSIONS.keys() if p != "document.upload"],
     "SUBTEAM_LEAD": [
         "subteam.view", "subteam.update", "subteam.manage_members",
         "team.view", "team.update", "team.member.view", "team.member.add", "team.member.update", "team.member.remove",
@@ -108,7 +108,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         "event.view",
         "risk.view", "risk.create", "risk.manage", "risk.resolve", "risk.escalate",
         "meeting.view", "meeting.create", "meeting.update",
-        "document.view", "document.upload",
+        "document.view",
         "announcement.view",
         "ai.use", "ai.propose", "ai.apply"
     ],
@@ -120,7 +120,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         "event.view",
         "risk.view", "risk.create", "risk.manage", "risk.resolve", "risk.escalate",
         "meeting.view",
-        "document.view", "document.upload",
+        "document.view",
         "announcement.view",
         "ai.use", "ai.propose", "ai.apply"
     ],
@@ -152,7 +152,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         "volunteer.view", "volunteer.assign", "volunteer.assign_tasks",
         "risk.view", "risk.create", "risk.update", "risk.manage", "risk.resolve", "risk.escalate",
         "meeting.view", "meeting.create", "meeting.update", "meeting.delete",
-        "document.view", "document.upload",
+        "document.view",
         "announcement.view", "announcement.create", "announcement.update", "announcement.delete",
         "ai.use", "ai.propose", "ai.apply"
     ]
@@ -174,16 +174,25 @@ def seed_permissions(db: Session):
             db.flush()
         perm_objects[key] = perm
 
-    # 2. Insert role mappings
+    # 2. Insert role mappings and remove obsolete mappings
     for role, perm_keys in DEFAULT_ROLE_PERMISSIONS.items():
+        allowed_perm_ids = set()
         for key in perm_keys:
             perm = perm_objects.get(key)
             if perm:
+                allowed_perm_ids.add(perm.id)
                 existing = db.query(RolePermission).filter(
                     RolePermission.role == role,
                     RolePermission.permission_id == perm.id
                 ).first()
                 if not existing:
                     db.add(RolePermission(role=role, permission_id=perm.id))
+
+        # Remove permissions no longer mapped to this role
+        if allowed_perm_ids:
+            db.query(RolePermission).filter(
+                RolePermission.role == role,
+                ~RolePermission.permission_id.in_(allowed_perm_ids)
+            ).delete(synchronize_session=False)
 
     db.commit()

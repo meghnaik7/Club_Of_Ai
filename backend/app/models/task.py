@@ -47,6 +47,7 @@ class Task(Base):
     dependencies_out = relationship("TaskDependency", foreign_keys="TaskDependency.dependent_task_id", back_populates="dependent_task", cascade="all, delete-orphan")
     dependencies_in = relationship("TaskDependency", foreign_keys="TaskDependency.prerequisite_task_id", back_populates="prerequisite_task", cascade="all, delete-orphan")
     comments = relationship("TaskComment", back_populates="task", cascade="all, delete-orphan")
+    escalations = relationship("TaskEscalation", back_populates="task", cascade="all, delete-orphan")
 
 
 class TaskAssignment(Base):

@@ -45,7 +45,13 @@ def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         )
-    user = db.query(User).filter(User.id == int(token_data.sub)).first()
+    sub_val = token_data.sub
+    user = None
+    if sub_val:
+        if str(sub_val).isdigit():
+            user = db.query(User).filter(User.id == int(sub_val)).first()
+        else:
+            user = db.query(User).filter(User.email == str(sub_val)).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
@@ -60,7 +66,14 @@ def get_current_user_optional(
             token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
         )
         token_data = TokenPayload(**payload)
-        user = db.query(User).filter(User.id == int(token_data.sub)).first()
-        return user or db.query(User).first()
+        sub_val = token_data.sub
+        if sub_val:
+            if str(sub_val).isdigit():
+                user = db.query(User).filter(User.id == int(sub_val)).first()
+            else:
+                user = db.query(User).filter(User.email == str(sub_val)).first()
+            if user:
+                return user
+        return db.query(User).first()
     except Exception:
         return db.query(User).first()

@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LogOut, LayoutDashboard, Calendar, Users, Megaphone,
-  CheckSquare, Sparkles, Menu, X, BookOpen, Briefcase, ShieldCheck, Network
+  CheckSquare, Sparkles, Menu, X, BookOpen, Briefcase, ShieldCheck, Network, Mic, User as UserIcon, Bot
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AIChatPanel from './AIChatPanel';
+import VoiceAssistant from './voice/VoiceAssistant';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -17,18 +18,23 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
   const { user, logout, isAdmin, isClubHead, isClubLeader, isSubTeamLead, isVolunteer, userTeams } = useAuth();
   const location = useLocation();
   const [aiOpen, setAiOpen] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
 
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/profile', icon: UserIcon, label: 'My Profile' },
     ...(isAdmin ? [{ to: '/admin/organization', icon: Network, label: 'Organization' }] : []),
     ...((isAdmin || isClubHead || isSubTeamLead) ? [{ to: '/teams', icon: Briefcase, label: isSubTeamLead && !isClubHead ? 'My SubTeam' : 'Teams' }] : []),
     ...((isAdmin || isClubHead) ? [{ to: '/events', icon: Calendar, label: 'Events' }] : []),
     ...((isAdmin || isClubHead || isSubTeamLead) ? [{ to: '/volunteers', icon: Users, label: isSubTeamLead && !isClubHead ? 'Team Volunteers' : 'Volunteers' }] : []),
     { to: '/tasks', icon: CheckSquare, label: isVolunteer ? 'My Tasks' : 'Tasks' },
     { to: '/announcements', icon: Megaphone, label: 'Announcements' },
+    { to: '/agentic-ai', icon: Bot, label: 'Agentic AI' },
     { to: '/documents', icon: BookOpen, label: 'RAG Knowledge' },
     ...((isAdmin || isClubHead || isClubLeader) ? [{ to: '/permissions', icon: ShieldCheck, label: 'Permissions' }] : []),
+
   ];
 
   const getRoleLabel = () => {
@@ -89,17 +95,29 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
               <span className="font-semibold text-sm">AI Assistant</span>
               <span className="ml-auto text-[10px] bg-violet-500/20 text-violet-300 border border-violet-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Active</span>
             </button>
+
+            {/* Voice AI Button */}
+            <button
+              onClick={() => setVoiceOpen(true)}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 bg-gradient-to-r from-rose-600/10 to-amber-600/10 hover:from-rose-600/20 hover:to-amber-600/20 text-rose-300 hover:text-white border border-rose-500/20 hover:border-rose-500/40 group mt-1"
+            >
+              <Mic className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
+              <span className="font-semibold text-sm">Voice AI</span>
+              <span className="ml-auto text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                Multilingual
+              </span>
+            </button>
           </div>
         </nav>
 
         <div className="p-4 mt-auto border-t border-slate-800/60">
           <div className="bg-slate-850/80 p-3.5 rounded-xl border border-slate-700/40 shadow-sm">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-sm">
+            <Link to="/profile" className="flex items-center gap-3 mb-3 group hover:opacity-90 transition-opacity">
+              <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-sm group-hover:scale-105 transition-transform">
                 {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
               <div className="overflow-hidden">
-                <p className="text-xs font-semibold text-white truncate">{user?.full_name}</p>
+                <p className="text-xs font-semibold text-white truncate group-hover:text-indigo-300 transition-colors">{user?.full_name}</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={`inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded ${
                     isAdmin
@@ -114,7 +132,7 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
                   </span>
                 </div>
               </div>
-            </div>
+            </Link>
             <button
               onClick={logout}
               className="w-full flex items-center justify-center gap-2 text-xs font-medium text-slate-400 hover:text-red-400 hover:bg-red-400/10 py-2 rounded-lg transition-colors border border-transparent hover:border-red-500/20"
@@ -165,6 +183,14 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
               >
                 <Sparkles className="w-4 h-4 text-violet-400" />
                 <span>AI Assistant</span>
+              </button>
+
+              <button
+                onClick={() => { setMobileMenuOpen(false); setVoiceOpen(true); }}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium bg-rose-600/15 text-rose-300 border border-rose-500/30 mt-2"
+              >
+                <Mic className="w-4 h-4 text-rose-400" />
+                <span>Voice AI (Multilingual)</span>
               </button>
             </nav>
 
@@ -217,7 +243,17 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
             <h1 className="text-base sm:text-lg font-bold text-white tracking-tight">{title}</h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Voice AI Quick Launcher */}
+            <button
+              onClick={() => setVoiceOpen(true)}
+              title="Speak in English, Hindi, or Gujarati"
+              className="flex items-center gap-2 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-rose-500/40 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+            >
+              <Mic className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+              <span className="hidden sm:inline">Voice Mode</span>
+            </button>
+
             {/* AI Assistant Quick Launcher */}
             <button
               onClick={() => setAiOpen(true)}
@@ -227,6 +263,16 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
               <span className="hidden sm:inline">Ask AI Agent</span>
               <span className="sm:hidden">AI</span>
             </button>
+
+            {/* User Profile Quick Button */}
+            <Link
+              to="/profile"
+              title="My Profile"
+              className="flex items-center gap-2 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-indigo-500/40 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+            >
+              <UserIcon className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden md:inline">Profile</span>
+            </Link>
           </div>
         </header>
 
@@ -239,6 +285,13 @@ export default function DashboardLayout({ children, title, activeEventId }: Dash
       <AIChatPanel
         isOpen={aiOpen}
         onClose={() => setAiOpen(false)}
+        activeEventId={activeEventId}
+      />
+
+      {/* Standalone Voice Assistant Modal */}
+      <VoiceAssistant
+        isOpen={voiceOpen}
+        onClose={() => setVoiceOpen(false)}
         activeEventId={activeEventId}
       />
     </div>

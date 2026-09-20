@@ -238,6 +238,15 @@ def delete_volunteer(
         if not AuthorizationService.is_club_head(db, current_user, club_id=vol_club):
             raise HTTPException(status_code=403, detail="Permission denied: Cannot delete volunteer profile")
 
+    # Clean up task assignments referencing this volunteer
+    from app.models.task import TaskAssignment
+    from app.models.meeting import MeetingActionItem
+
+    db.query(TaskAssignment).filter(TaskAssignment.volunteer_id == volunteer.id).delete(synchronize_session=False)
+    db.query(MeetingActionItem).filter(MeetingActionItem.resolved_volunteer_id == volunteer.id).update(
+        {MeetingActionItem.resolved_volunteer_id: None}, synchronize_session=False
+    )
+
     db.delete(volunteer)
     db.commit()
     return {"ok": True}

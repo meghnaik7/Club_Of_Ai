@@ -25,9 +25,15 @@ def upload_document(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
-    """Upload a new document (PDF, DOCX, TXT, MD) and chunk it with embeddings."""
+    """Upload a new document (PDF, DOCX, TXT, MD) and chunk it with embeddings.
+    Strictly restricted for RAG knowledge base: Only System Admin can add documents.
+    """
     from app.services.authz import AuthorizationService
-    AuthorizationService.require_permission(db, current_user, "document.upload")
+    if not AuthorizationService.is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied: Only System Admin can add documents into the RAG knowledge base."
+        )
 
     filename = file.filename or "uploaded_file"
     ext = filename.split(".")[-1].lower() if "." in filename else ""

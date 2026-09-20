@@ -134,3 +134,36 @@ def search_event_data(
         return {"error": f"Failed to search event data: {str(e)}"}
     finally:
         db.close()
+
+
+@tool
+def get_next_event() -> Dict[str, Any]:
+    """
+    Returns full details about the immediate next upcoming club event,
+    including title, date, venue, attendance, budget, and task progress summary.
+    Use this whenever a user asks 'What is the next event?', 'When is our next event?',
+    or asks for upcoming event information.
+    """
+    db = SessionLocal()
+    try:
+        return context_service.get_next_event(db=db)
+    except Exception as e:
+        return {"error": f"Failed to retrieve next event: {str(e)}"}
+    finally:
+        db.close()
+
+
+@tool
+def get_upcoming_events(limit: int = 5) -> List[Dict[str, Any]]:
+    """
+    Returns a list of all upcoming events ordered chronologically.
+    Provides title, date, venue, attendance, budget, and task progress for each event.
+    """
+    db = SessionLocal()
+    try:
+        return context_service.get_upcoming_events(db=db, limit=limit)
+    except Exception as e:
+        return [{"error": f"Failed to retrieve upcoming events: {str(e)}"}]
+    finally:
+        db.close()
+
