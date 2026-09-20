@@ -39,3 +39,22 @@ class VoiceChatResponse(BaseModel):
 class LanguageListResponse(BaseModel):
     languages: Dict[str, str] = Field(..., description="Map of code to display name")
     default_language: str = Field("en-IN", description="Default configured language")
+
+
+class VoiceRAGCitation(BaseModel):
+    source: str = Field("Document", description="Source document or reference name")
+    page: Optional[int] = Field(None, description="Page number if applicable")
+    section: Optional[str] = Field(None, description="Section heading if applicable")
+
+
+class VoiceRAGResponse(BaseModel):
+    transcript: str = Field(..., description="User voice transcription")
+    answer: str = Field(..., description="Grounded RAG answer")
+    language: str = Field("en-IN", description="Language code")
+    confidence: Optional[float] = Field(0.0, description="RAG confidence score")
+    citations: List[VoiceRAGCitation] = Field(default_factory=list, description="Extracted source citations")
+    audio_base64: Optional[str] = Field(None, description="Base64 encoded audio response")
+    audio_url: Optional[str] = Field(None, description="Data URI for direct playback")
+    content_type: str = Field("audio/wav", description="Audio MIME type")
+    status: str = Field("SUCCESS", description="Execution status")
+

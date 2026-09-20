@@ -277,5 +277,51 @@ class TestVoiceEndpoints(unittest.TestCase):
         self.assertEqual(data["thread_id"], "thread-123")
 
 
+    @patch("app.voice.stt_service.STTService.transcribe_audio")
+    @patch("ai.rag.pipeline.execute_rag_pipeline")
+    @patch("app.voice.tts_service.TTSService.synthesize_speech")
+    def test_voice_rag_query_endpoint(self, mock_tts, mock_rag, mock_stt):
+        from app.voice.schemas import TranscriptionResponse, TTSResponse
+
+        # 1. STT mock
+        mock_stt.return_value = TranscriptionResponse(
+            text="What was our hackathon budget?",
+            language="en-IN",
+            confidence=0.96,
+            request_id="req-stt-rag"
+        )
+        # 2. RAG mock
+        mock_rag.return_value = {
+            "answer": "The hackathon budget was Rs. 50,000 for logistics and food.",
+            "citations": [{"source": "Hackathon_Budget.pdf", "page": 2, "section": "Summary"}],
+            "confidence_score": 0.95
+        }
+        # 3. TTS mock
+        fake_b64 = base64.b64encode(b"RIFFWAVE_RAG").decode("utf-8")
+        mock_tts.return_value = TTSResponse(
+            audio_base64=fake_b64,
+            content_type="audio/wav",
+            language="en-IN",
+            voice="shubh"
+        )
+
+        dummy_audio = io.BytesIO(b"RIFF$\x00\x00\x00WAVEfmt ")
+        res = self.client.post(
+            "/api/v1/voice/rag-query",
+            files={"audio": ("question.wav", dummy_audio, "audio/wav")},
+            data={"language": "en-IN"}
+        )
+
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["transcript"], "What was our hackathon budget?")
+        self.assertIn("The hackathon budget was Rs. 50,000", data["answer"])
+        self.assertEqual(len(data["citations"]), 1)
+        self.assertEqual(data["citations"][0]["source"], "Hackathon_Budget.pdf")
+        self.assertEqual(data["audio_base64"], fake_b64)
+        self.assertTrue(data["audio_url"].startswith("data:audio/wav;base64,"))
+        self.assertEqual(data["language"], "en-IN")
+
+
 if __name__ == "__main__":
     unittest.main()

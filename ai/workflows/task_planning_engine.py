@@ -30,28 +30,35 @@ logger = logging.getLogger(__name__)
 def get_llm():
     if ChatOpenAI is None:
         return None
-    provider = getattr(settings, "LLM_PROVIDER", "").lower()
-    if provider == "openrouter" or getattr(settings, "OPENROUTER_API_KEY", None):
-        return ChatOpenAI(
-            api_key=getattr(settings, "OPENROUTER_API_KEY", "") or getattr(settings, "OPENAI_API_KEY", ""),
-            model=getattr(settings, "OPENROUTER_MODEL", getattr(settings, "LLM_MODEL", "openai/gpt-4o-mini")),
-            base_url=getattr(settings, "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-            default_headers={
-                "HTTP-Referer": "https://github.com/meghnaik7/Club_Of_Ai",
-                "X-Title": "ClubOps AI",
-            },
-        )
-    if "azure" in provider and getattr(settings, "AZURE_OPENAI_ENDPOINT", None) and (getattr(settings, "AZURE_OPENAI_API_KEY", None) or getattr(settings, "OPENAI_API_KEY", None)):
-        from langchain_openai import AzureChatOpenAI
-        return AzureChatOpenAI(
-            azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
-            api_key=settings.AZURE_OPENAI_API_KEY or settings.OPENAI_API_KEY,
-            api_version=getattr(settings, "AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
-            azure_deployment=getattr(settings, "AZURE_OPENAI_DEPLOYMENT_NAME", getattr(settings, "OPENAI_MODEL", "gpt-5.4-mini")),
-        )
-    if getattr(settings, "OPENAI_API_KEY", None):
-        return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=getattr(settings, "OPENAI_MODEL", "openai/gpt-4o-mini"))
-    return None
+    try:
+        provider = getattr(settings, 'LLM_PROVIDER', '').lower()
+        openrouter_key = getattr(settings, 'OPENROUTER_API_KEY', None) or getattr(settings, 'OPENAI_API_KEY', None)
+        if (provider == 'openrouter' or getattr(settings, 'OPENROUTER_API_KEY', None)) and openrouter_key:
+            return ChatOpenAI(
+                api_key=openrouter_key,
+                model=getattr(settings, 'OPENROUTER_MODEL', getattr(settings, 'LLM_MODEL', 'openai/gpt-4o-mini')),
+                base_url=getattr(settings, 'OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+                default_headers={
+                    'HTTP-Referer': 'https://github.com/meghnaik7/Club_Of_Ai',
+                    'X-Title': 'ClubOps AI',
+                },
+            )
+        if 'azure' in provider and getattr(settings, 'AZURE_OPENAI_ENDPOINT', None):
+            azure_key = getattr(settings, 'AZURE_OPENAI_API_KEY', None) or getattr(settings, 'OPENAI_API_KEY', None)
+            if azure_key:
+                from langchain_openai import AzureChatOpenAI
+                return AzureChatOpenAI(
+                    azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+                    api_key=azure_key,
+                    api_version=getattr(settings, 'AZURE_OPENAI_API_VERSION', '2024-12-01-preview'),
+                    azure_deployment=getattr(settings, 'AZURE_OPENAI_DEPLOYMENT_NAME', getattr(settings, 'OPENAI_MODEL', 'gpt-5.4-mini')),
+                )
+        if getattr(settings, 'OPENAI_API_KEY', None):
+            return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=getattr(settings, 'OPENAI_MODEL', 'openai/gpt-4o-mini'))
+        return None
+    except Exception as e:
+        logger.warning(f'Could not initialize LLM in task planning engine: {e}')
+        return None
 
 def _parse_date(d: Any) -> Optional[datetime]:
     if isinstance(d, datetime):

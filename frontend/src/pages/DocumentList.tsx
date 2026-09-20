@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Search, Upload, Trash2, Sparkles, BookOpen, Send, Loader2, History, ShieldCheck, CheckCircle2, Lock } from 'lucide-react';
+import {
+  FileText, Search, Upload, Trash2, Sparkles, BookOpen, Send, Loader2,
+  History, ShieldCheck, CheckCircle2, Lock, Mic, Square, Volume2
+} from 'lucide-react';
+import VoiceService from '../services/voice.service';
+import VoiceAssistant from '../components/voice/VoiceAssistant';
 import DashboardLayout from '../components/DashboardLayout';
 import DocumentsService from '../services/documents.service';
 import type { DocumentItem, RAGHistoryItem } from '../services/documents.service';
@@ -15,6 +20,20 @@ export default function DocumentList() {
   // RAG Query state
   const [query, setQuery] = useState('');
   const [asking, setAsking] = useState(false);
+
+  // Voice Assistant Modal
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+
+  // Quick Mic Recording (STT direct to RAG Query)
+  const [isQuickRecording, setIsQuickRecording] = useState(false);
+  const quickMediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const quickAudioChunksRef = React.useRef<Blob[]>([]);
+  const quickStreamRef = React.useRef<MediaStream | null>(null);
+
+  // Audio TTS playback state for past answers
+  const [playingAnswerId, setPlayingAnswerId] = useState<number | null>(null);
+  const [loadingTTSId, setLoadingTTSId] = useState<number | null>(null);
+  const activeAudioRef = React.useRef<HTMLAudioElement | null>(null);
 
   // Upload modal
   const [isUploading, setIsUploading] = useState(false);
@@ -57,6 +76,120 @@ export default function DocumentList() {
     fetchRAGHistory();
     fetchDocuments();
   }, []);
+
+  // Quick Mic Recording (STT)
+  const startQuickRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      quickStreamRef.current = stream;
+      quickAudioChunksRef.current = [];
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : '';
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      quickMediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          quickAudioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        if (quickStreamRef.current) {
+          quickStreamRef.current.getTracks().forEach((track) => track.stop());
+          quickStreamRef.current = null;
+        }
+
+        const audioBlob = new Blob(quickAudioChunksRef.current, {
+          type: recorder.mimeType || 'audio/webm',
+        });
+
+        if (audioBlob.size > 100) {
+          setAsking(true);
+          try {
+            const transcription = await VoiceService.transcribe(audioBlob, { language: 'auto' });
+            if (transcription.transcript?.trim()) {
+              setQuery(transcription.transcript);
+              await DocumentsService.queryRAG({ query: transcription.transcript });
+              setQuery('');
+              fetchRAGHistory();
+            }
+          } catch (err: any) {
+            console.error('Quick voice transcription failed:', err);
+            alert('Voice transcription failed. Please try again or type your question.');
+          } finally {
+            setAsking(false);
+          }
+        }
+        setIsQuickRecording(false);
+      };
+
+      recorder.start(100);
+      setIsQuickRecording(true);
+    } catch (err) {
+      console.error('Microphone error:', err);
+      alert('Could not access microphone. Please check permissions in your browser.');
+      setIsQuickRecording(false);
+    }
+  };
+
+  const stopQuickRecording = () => {
+    if (quickMediaRecorderRef.current && quickMediaRecorderRef.current.state === 'recording') {
+      quickMediaRecorderRef.current.stop();
+    }
+    setIsQuickRecording(false);
+  };
+
+  // Answer Text-to-Speech Playback
+  const handlePlayAnswerAudio = async (item: RAGHistoryItem) => {
+    if (playingAnswerId === item.id) {
+      if (activeAudioRef.current) {
+        activeAudioRef.current.pause();
+        activeAudioRef.current = null;
+      }
+      setPlayingAnswerId(null);
+      return;
+    }
+
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause();
+      activeAudioRef.current = null;
+      setPlayingAnswerId(null);
+    }
+
+    setLoadingTTSId(item.id);
+    try {
+      const textToSpeak = item.answer.length > 300 ? item.answer.slice(0, 300) + '...' : item.answer;
+      const synth = await VoiceService.synthesize({
+        text: textToSpeak,
+        language: 'en-IN',
+      });
+
+      const audioUrl = `data:${synth.content_type || 'audio/wav'};base64,${synth.audio_base64}`;
+      const audio = new Audio(audioUrl);
+      activeAudioRef.current = audio;
+      setPlayingAnswerId(item.id);
+
+      audio.onended = () => {
+        setPlayingAnswerId(null);
+        activeAudioRef.current = null;
+      };
+      audio.onerror = () => {
+        setPlayingAnswerId(null);
+        activeAudioRef.current = null;
+      };
+
+      await audio.play();
+    } catch (err) {
+      console.error('Failed to synthesize speech for answer:', err);
+    } finally {
+      setLoadingTTSId(null);
+    }
+  };
 
   const handleAskRAG = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,7 +274,17 @@ export default function DocumentList() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/50">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsVoiceModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white flex items-center gap-2 shadow-lg shadow-violet-600/25 transition-all border border-violet-400/30 shrink-0 cursor-pointer"
+              title="Open Multilingual Voice Assistant"
+            >
+              <Mic className="w-4 h-4 text-violet-200" />
+              <span>Voice RAG Assistant</span>
+            </button>
+            <div className="flex items-center gap-2 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/50">
             <button
               onClick={() => setActiveTab('rag')}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 flex items-center gap-2 ${
@@ -170,6 +313,7 @@ export default function DocumentList() {
               Documents ({documents.length})
             </button>
           </div>
+          </div>
         </div>
 
         {/* TAB 1: RAG Q&A WITH PAST QUESTIONS & ANSWERS */}
@@ -186,13 +330,28 @@ export default function DocumentList() {
                   </span>
                 </label>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="e.g. What was our meal reimbursement limit? What went wrong at the hackathon?"
-                    className="flex-1 bg-slate-950 border border-slate-700/80 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                  />
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="e.g. What was our meal reimbursement limit? What went wrong at the hackathon?"
+                      className="w-full bg-slate-950 border border-slate-700/80 focus:border-indigo-500 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={isQuickRecording ? stopQuickRecording : startQuickRecording}
+                      disabled={asking}
+                      className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all flex items-center justify-center cursor-pointer ${
+                        isQuickRecording
+                          ? 'bg-rose-600 text-white animate-pulse shadow-md shadow-rose-600/40'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      }`}
+                      title={isQuickRecording ? 'Click to stop & ask RAG' : 'Speak your question (Voice STT)'}
+                    >
+                      {isQuickRecording ? <Square className="w-4 h-4 fill-white" /> : <Mic className="w-4 h-4 text-violet-400" />}
+                    </button>
+                  </div>
                   <button
                     type="submit"
                     disabled={asking || !query.trim()}
@@ -274,9 +433,36 @@ export default function DocumentList() {
 
                       {/* Answer */}
                       <div className="ml-8 bg-slate-950/80 border border-slate-800/80 p-4 rounded-xl space-y-3">
-                        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
-                          {item.answer}
-                        </p>
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap flex-1">
+                            {item.answer}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handlePlayAnswerAudio(item)}
+                            disabled={loadingTTSId === item.id}
+                            className={`shrink-0 text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer ${
+                              playingAnswerId === item.id
+                                ? 'bg-violet-600 border-violet-500 text-white shadow-md shadow-violet-600/30'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                            }`}
+                            title="Listen to AI voice read-aloud"
+                          >
+                            {loadingTTSId === item.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-400" />
+                            ) : playingAnswerId === item.id ? (
+                              <>
+                                <Square className="w-3.5 h-3.5 fill-current" />
+                                <span>Stop</span>
+                              </>
+                            ) : (
+                              <>
+                                <Volume2 className="w-3.5 h-3.5 text-violet-400" />
+                                <span>Listen</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
 
                         {/* Citations */}
                         {item.citations && item.citations.length > 0 && (
@@ -432,6 +618,14 @@ export default function DocumentList() {
           </div>
         )}
       </div>
+
+      {/* Multilingual Voice Assistant Modal for RAG */}
+      <VoiceAssistant
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        mode="rag"
+        onTurnComplete={() => fetchRAGHistory()}
+      />
     </DashboardLayout>
   );
 }
